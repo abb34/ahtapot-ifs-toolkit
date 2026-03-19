@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ahtapot — IFS Cloud Toolkit | Privacy Policy</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    color: #1a1a2e;
+    background: #f9f5ff;
+    padding: 40px 20px;
+  }
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 12px;
+    padding: 48px 52px;
+    box-shadow: 0 2px 20px rgba(107,45,139,.08);
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .logo-icon {
+    font-size: 40px;
+  }
+  .logo-text h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #6B2D8B;
+  }
+  .logo-text p {
+    font-size: 12px;
+    color: #888;
+  }
+  h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #6B2D8B;
+    margin: 28px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #f3e8ff;
+  }
+  p { margin-bottom: 12px; color: #444; }
+  ul { margin: 8px 0 12px 20px; color: #444; }
+  ul li { margin-bottom: 6px; }
+  .highlight {
+    background: #f3e8ff;
+    border-left: 4px solid #9B4DC8;
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 20px 0;
+    font-weight: 500;
+    color: #4A1060;
+  }
+  .date {
+    font-size: 12px;
+    color: #aaa;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+  }
+  a { color: #9B4DC8; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="logo">
+    <div class="logo-icon">🐙</div>
+    <div class="logo-text">
+      <h1>Ahtapot — IFS Cloud Toolkit</h1>
+      <p>Chrome Extension Privacy Policy</p>
+    </div>
+  </div>
+
+  <div class="highlight">
+    This extension does not collect, transmit, or share any personal data. All data stays in your browser.
+  </div>
+
+  <h2>What data does the extension access?</h2>
+  <p>Ahtapot — IFS Cloud Toolkit intercepts network requests made by your browser to IFS Cloud Aurena pages you visit. This data includes:</p>
+  <ul>
+    <li>OData API responses from your IFS Cloud instance (e.g. purchase orders, inventory records)</li>
+    <li>The URL of the active IFS page</li>
+  </ul>
+  <p>This data is used solely to display information inside the extension popup and to generate Excel/PDF reports on your device.</p>
+
+  <h2>Data storage</h2>
+  <p>All captured data is stored locally using <strong>Chrome's built-in storage API</strong> (<code>chrome.storage.local</code>). This storage is:</p>
+  <ul>
+    <li>Local to your browser — never sent to any external server</li>
+    <li>Accessible only to this extension</li>
+    <li>Cleared when you use the "Clear Cache" or "Delete All Templates" functions, or when you uninstall the extension</li>
+  </ul>
+
+  <h2>Data transmission</h2>
+  <p>Ahtapot does <strong>not</strong>:</p>
+  <ul>
+    <li>Send any data to external servers or third parties</li>
+    <li>Use analytics, tracking, or advertising services</li>
+    <li>Collect personally identifiable information</li>
+    <li>Communicate with any server other than your own IFS Cloud instance</li>
+  </ul>
+
+  <h2>Permissions used</h2>
+  <ul>
+    <li><strong>activeTab / tabs</strong> — To detect which IFS page is open and link captured data to the correct tab</li>
+    <li><strong>storage</strong> — To save templates, environment labels, and sticky notes locally</li>
+    <li><strong>scripting</strong> — To inject the data capture script into IFS pages</li>
+    <li><strong>downloads</strong> — To save generated Excel/PDF reports to your computer</li>
+    <li><strong>Host permissions (*://*/*)</strong> — Required because IFS Cloud can be hosted on any domain (cloud, on-premise, custom URLs)</li>
+  </ul>
+
+  <h2>Contact</h2>
+  <p>If you have any questions about this privacy policy, please open an issue on the project repository or contact the developer directly.</p>
+
+  <p class="date">Last updated: March 2026</p>
+
+</div>
+</body>
+</html>
