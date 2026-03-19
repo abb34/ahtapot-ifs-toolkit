@@ -4,7 +4,7 @@
   "short_name": "Ahtapot",
   "version": "1.0.0",
   "description": "Consultant toolkit for IFS Cloud Aurena — Excel reports with templates, environment labels, cross-copy, sticky notes, data analysis.",
-  "homepage_url": "https://github.com/birkan/ahtapot-ifs-toolkit",
+  "homepage_url": "https://github.com/abb34/ahtapot-ifs-toolkit",
   "minimum_chrome_version": "103",
   "permissions": [
     "activeTab",
