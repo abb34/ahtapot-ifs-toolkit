@@ -1,0 +1,68 @@
+/* IFS Cloud Toolkit — content.css */
+
+/* ─── ORTAM BANNER ─────────────────────────────────────── */
+#ifs-toolkit-env-banner {
+  font-family: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px !important;
+  animation: ifs-slide-down 0.3s ease-out !important;
+}
+
+@keyframes ifs-slide-down {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+#ifs-toolkit-env-dot {
+  animation: ifs-pulse 2.5s ease-in-out infinite !important;
+}
+
+@keyframes ifs-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+/* ─── STICKY NOTE ───────────────────────────────────────── */
+[data-ifs-sticky-id] {
+  font-family: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif !important;
+}
+
+[data-ifs-sticky-id] [data-sticky-handle] {
+  user-select: none !important;
+}
+
+[data-ifs-sticky-id] [data-sticky-handle]:hover {
+  background: rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-ifs-sticky-id] button:hover {
+  background: rgba(0, 0, 0, 0.12) !important;
+  border-radius: 3px !important;
+}
+
+[data-ifs-sticky-id] [data-sticky-body][contenteditable="true"] {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-radius: 3px !important;
+  padding: 4px !important;
+}
+
+/* ─── AHTAPOT WIDGET ───────────────────────────────────── */
+@keyframes ahtapot-pop {
+  from { opacity: 0; transform: scale(0.85) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+#ahtapot-trigger:active {
+  transform: scale(0.95) !important;
+}
+
+#ahtapot-panel textarea:focus {
+  border-color: #9B4DC8 !important;
+  outline: none !important;
+}
+
+.ahtapot-template-row:hover {
+  border-color: #9B4DC8 !important;
+  background: #1f1035 !important;
+}

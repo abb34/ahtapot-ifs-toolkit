@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"/>
+<title>Ahtapot — IFS Toolkit</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d1117; --surface:#161b22; --surface2:#1f2937; --border:#30363d;
+  --accent:#00c2a8; --accent2:#f97316; --text:#e6edf3; --muted:#7d8590;
+  --danger:#f85149; --success:#3fb950; --purple:#a78bfa; --blue:#38bdf8;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;}
+
+/* HEADER */
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px;}
+.logo{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),#0077b6);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;text-align:center;line-height:1.2;}
+.header-info{flex:1;}
+.header-info h1{font-size:14px;font-weight:600;}
+.header-info span{font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+.data-badge{background:rgba(0,194,168,.15);color:var(--accent);font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap;}
+
+/* NAV TABS */
+.nav{display:flex;border-bottom:1px solid var(--border);background:var(--surface);overflow-x:auto;}
+.nav::-webkit-scrollbar{display:none;}
+.nav-tab{flex-shrink:0;padding:10px 14px;text-align:center;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;}
+.nav-tab:hover{color:var(--text);}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.nav-tab.report-tab.active{color:var(--accent);}
+.nav-tab.env-tab.active{color:var(--accent2);}
+.nav-tab.cross-tab.active{color:var(--purple);}
+.nav-tab.sticky-tab.active{color:#fbbf24;}
+.nav-tab.analiz-tab.active{color:#34d399;}
+
+/* ANALİZ TABLOSU */
+.analiz-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;}
+.analiz-table th{background:var(--surface);color:var(--muted);font-weight:600;padding:6px 8px;text-align:left;border-bottom:1px solid var(--border);letter-spacing:.5px;font-size:10px;text-transform:uppercase;}
+.analiz-table td{padding:5px 8px;border-bottom:1px solid rgba(48,54,61,.5);color:var(--text);}
+.analiz-table tr:last-child td{border-bottom:none;}
+.analiz-table tr:hover td{background:rgba(0,194,168,.04);}
+.analiz-table .num{font-family:'IBM Plex Mono',monospace;text-align:right;color:var(--accent);}
+.analiz-table .total-row td{font-weight:600;background:var(--surface);color:var(--success);border-top:1px solid var(--border);}
+.metric-chip{display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;margin:2px;transition:all .15s;}
+.metric-chip.active{background:rgba(52,211,153,.15);border-color:#34d399;color:#34d399;}
+.metric-chip:hover{border-color:var(--accent);}
+
+/* PANELS */
+.panel{display:none;padding:14px 16px;min-height:480px;}
+.panel.active{display:block;}
+
+/* SECTION */
+.section-label{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* INPUTS */
+.input-group{margin-bottom:10px;}
+.input-group label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;}
+.input-group input,.input-group select,.input-group textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;outline:none;transition:border .2s;}
+.input-group input:focus,.input-group select:focus,.input-group textarea:focus{border-color:var(--accent);}
+.input-group select option{background:var(--surface2);}
+.input-group textarea{resize:vertical;min-height:55px;line-height:1.5;}
+
+/* BUTTONS */
+.btn{padding:8px 14px;border-radius:6px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .2s;display:inline-flex;align-items:center;gap:5px;}
+.btn-accent{background:var(--accent);color:#000;}
+.btn-accent:hover{filter:brightness(1.1);}
+.btn-accent:disabled{opacity:.5;cursor:not-allowed;}
+.btn-orange{background:var(--accent2);color:#000;}
+.btn-orange:hover{filter:brightness(1.1);}
+.btn-purple{background:var(--purple);color:#000;}
+.btn-purple:hover{filter:brightness(1.1);}
+.btn-blue{background:var(--blue);color:#000;}
+.btn-blue:hover{filter:brightness(1.1);}
+.btn-ghost{background:var(--surface2);border:1px solid var(--border);color:var(--text);}
+.btn-ghost:hover{border-color:var(--accent);}
+.btn-danger{background:rgba(248,81,73,.15);color:var(--danger);border:1px solid var(--danger);}
+.btn-full{width:100%;justify-content:center;}
+.btn-row{display:flex;gap:8px;margin-top:10px;}
+
+/* CARDS */
+.card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.card-title{font-size:12px;font-weight:600;}
+
+/* DATA CACHE LIST */
+.entity-item{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:4px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:border-color .2s;}
+.entity-item:hover{border-color:var(--accent);}
+.entity-item.selected{border-color:var(--accent);background:rgba(0,194,168,.05);}
+.entity-name{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);flex:1;}
+.entity-count{font-size:10px;color:var(--muted);background:var(--border);padding:1px 6px;border-radius:10px;}
+.entity-service{font-size:10px;color:var(--muted);}
+.entity-stale{font-size:10px;color:var(--accent2);}
+
+/* TEMPLATE LIST */
+.template-item{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:4px;display:flex;align-items:center;gap:8px;}
+.template-name{flex:1;font-size:12px;font-weight:500;}
+.template-entity{font-size:10px;color:var(--muted);}
+
+/* BADGE */
+.badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;}
+.badge-green{background:rgba(63,185,80,.15);color:var(--success);}
+.badge-orange{background:rgba(249,115,22,.15);color:var(--accent2);}
+.badge-red{background:rgba(248,81,73,.15);color:var(--danger);}
+.badge-purple{background:rgba(167,139,250,.15);color:var(--purple);}
+
+/* ENV COLOR PICKER */
+.env-color-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:8px 0;}
+.env-color-dot{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .2s;}
+.env-color-dot.selected{border-color:var(--text);transform:scale(1.15);}
+
+
+/* STICKY NOTE PREVIEW */
+.sticky-preview{background:#fef08a;border-radius:4px;padding:8px 10px;margin-bottom:6px;font-size:12px;color:#374151;cursor:pointer;display:flex;justify-content:space-between;}
+.sticky-preview:hover{opacity:.8;}
+
+/* LOG */
+.log-box{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;height:80px;overflow-y:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);line-height:1.6;}
+.log-ok{color:var(--success);}.log-err{color:var(--danger);}.log-info{color:var(--accent);}
+
+/* LOADING */
+.loading{display:none;align-items:center;gap:8px;padding:8px 0;color:var(--muted);font-size:12px;}
+.loading.visible{display:flex;}
+.spinner{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--accent);animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* TOAST */
+#toast{position:fixed;bottom:12px;left:50%;transform:translateX(-50%) translateY(30px);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-size:12px;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;z-index:999;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#toast.success{border-color:var(--success);color:var(--success);}
+#toast.error{border-color:var(--danger);color:var(--danger);}
+
+.empty-state{text-align:center;padding:24px 0;color:var(--muted);font-size:12px;}
+.empty-icon{font-size:28px;margin-bottom:8px;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* FILE UPLOAD */
+.file-drop{border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:border-color .2s;}
+.file-drop:hover,.file-drop.drag-over{border-color:var(--accent);}
+.file-drop-icon{font-size:24px;margin-bottom:6px;}
+.file-drop-text{font-size:12px;color:var(--muted);}
+.file-drop input{display:none;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo" style="font-size:20px;background:linear-gradient(135deg,#6B2D8B,#9B4DC8)">🐙</div>
+  <div class="header-info">
+    <h1>Ahtapot — IFS Toolkit</h1>
+    <span id="page-context">Yükleniyor...</span>
+  </div>
+  <span class="data-badge" id="cache-badge">0 veri</span>
+</div>
+
+<div class="nav">
+  <div class="nav-tab report-tab active" data-tab="report">📊 Rapor</div>
+  <div class="nav-tab env-tab" data-tab="env">🏷️ Ortam</div>
+  <div class="nav-tab cross-tab" data-tab="cross">🔄 Çapraz</div>
+  <div class="nav-tab sticky-tab" data-tab="sticky">📌 Notlar</div>
+  <div class="nav-tab analiz-tab" data-tab="analiz">📈 Analiz</div>
+  <div class="nav-tab settings-tab" data-tab="settings">⚙️ Ayarlar</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     RAPOR PANELİ
+════════════════════════════════════════════════ -->
+<div class="panel active" id="panel-report">
+
+  <!-- Yakalanan Veri -->
+  <div class="section-label">Yakalanan IFS Verisi</div>
+  <div id="entity-list">
+    <div class="empty-state">
+      <div class="empty-icon">📡</div>
+      Henüz veri yok — IFS sayfasında bir kayıt açın
+    </div>
+  </div>
+
+  <div class="btn-row" style="margin-bottom:14px">
+    <button class="btn btn-ghost" id="btn-refresh-cache" style="flex:1;justify-content:center">🔄 Yenile</button>
+    <button class="btn btn-ghost" id="btn-clear-cache" style="flex:1;justify-content:center">🗑 Temizle</button>
+  </div>
+
+  <!-- Şablon Seçimi -->
+  <div class="section-label">Şablon</div>
+  <div id="template-list">
+    <div class="empty-state" style="padding:12px 0">
+      <div class="empty-icon" style="font-size:20px">📂</div>
+      Henüz şablon yok
+    </div>
+  </div>
+
+  <div class="btn-row" style="margin-bottom:14px">
+    <button class="btn btn-ghost" id="btn-upload-template" style="flex:1;justify-content:center">📤 Şablon Yükle</button>
+    <button class="btn btn-ghost" id="btn-download-sample" style="flex:1;justify-content:center">⬇️ Örnek İndir</button>
+    <input type="file" id="template-file-input" accept=".xlsx" style="display:none">
+  </div>
+
+  <!-- Blok Eşleştirme -->
+  <div class="section-label" style="display:flex;justify-content:space-between;align-items:center">
+    <span>Veri Eşleştirme</span>
+    <button id="btn-add-block" class="btn" style="font-size:10px;padding:3px 8px;background:rgba(155,77,200,.15);border:1px solid #9B4DC8;color:#9B4DC8">+ Blok Ekle</button>
+  </div>
+  <div class="card" id="mapping-card">
+    <div class="input-group" style="margin-bottom:8px">
+      <label>Header Verisi (ana kayıt)</label>
+      <select id="header-entity-select">
+        <option value="">-- Entity seç --</option>
+      </select>
+    </div>
+    <div id="block-mappings">
+      <div class="block-mapping-row" data-block="LINES" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <div style="flex:1">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Blok Adı</div>
+          <input type="text" value="LINES" class="block-name-input" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;font-size:11px;font-family:monospace">
+        </div>
+        <div style="flex:2">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Entity</div>
+          <select class="block-entity-select" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;font-size:11px">
+            <option value="">-- Yok --</option>
+          </select>
+        </div>
+        <button class="btn-remove-block" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 2px;margin-top:14px" title="Kaldır">×</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rapor Oluştur -->
+  <div class="loading" id="report-loading"><div class="spinner"></div><span>Rapor hazırlanıyor...</span></div>
+
+  <div class="btn-row">
+    <button class="btn btn-accent btn-full" id="btn-generate-excel">📊 Excel İndir</button>
+    <button class="btn btn-ghost" id="btn-generate-pdf" style="flex:0 0 auto">🖨️ PDF</button>
+  </div>
+
+  <div class="log-box" id="report-log" style="margin-top:10px">
+    <span class="log-info">[hazır] Ahtapot IFS Toolkit aktif...</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     ORTAM ETİKETİ
+════════════════════════════════════════════════ -->
+<div class="panel" id="panel-env">
+  <div class="section-label">Mevcut Ortam</div>
+  <div class="card">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Aktif URL</div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent)" id="current-hostname">—</div>
+  </div>
+  <div class="section-label">Ortam Rengi & Etiketi</div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="input-group" style="margin-bottom:8px">
+      <label>Etiket</label>
+      <input type="text" id="env-label" placeholder="UAT, PROD, TEST...">
+    </div>
+    <div class="input-group" style="margin-bottom:8px">
+      <label>Renk</label>
+      <div id="env-colors" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"></div>
+    </div>
+    <div class="input-group" style="margin-bottom:8px">
+      <label>İkon</label>
+      <div id="env-icons" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"></div>
+      <input type="hidden" id="env-icon" value="⚠️">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-accent" style="flex:1;justify-content:center" id="btn-save-env">💾 Kaydet</button>
+      <button class="btn btn-danger" style="flex:1;justify-content:center" id="btn-remove-env">🗑 Kaldır</button>
+    </div>
+  </div>
+  <div class="section-label">Kayıtlı Ortamlar</div>
+  <div id="env-list"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     ÇAPRAZ KOPYALA
+════════════════════════════════════════════════ -->
+<div class="panel" id="panel-cross">
+  <div class="section-label">Kaynak Veri</div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="input-group" style="margin-bottom:8px">
+      <label>Entity</label>
+      <select id="cross-entity-select">
+        <option value="">-- Entity seç --</option>
+      </select>
+    </div>
+    <button class="btn btn-ghost btn-full" id="btn-cross-preview">👁 Önizle</button>
+    <div id="cross-preview" style="margin-top:8px;font-size:11px;color:var(--muted);max-height:120px;overflow-y:auto">
+      <div id="cross-preview-box"></div>
+    </div>
+    <div class="loading" id="cross-loading"><div class="spinner"></div><span>Kopyalanıyor...</span></div>
+  </div>
+  <div class="section-label">Hedef Ortam</div>
+  <div class="card">
+    <div class="input-group" style="margin-bottom:8px">
+      <label>Hedef URL</label>
+      <input type="text" id="cross-target-url" placeholder="https://target.ifs.cloud/...">
+    </div>
+    <div class="input-group" style="margin-bottom:8px">
+      <label>Çakışma Stratejisi</label>
+      <select id="cross-conflict">
+        <option value="skip">Atla</option>
+        <option value="update">Güncelle</option>
+        <option value="error">Hata Ver</option>
+      </select>
+    </div>
+    <button class="btn btn-accent btn-full" id="btn-cross-copy">🔄 Kopyala</button>
+  </div>
+</div>
+
+<div class="panel" id="panel-sticky">
+  <div class="section-label">Bu Sayfadaki Notlar</div>
+  <div id="sticky-list">
+    <div class="empty-state" style="padding:12px 0">
+      <div class="empty-icon" style="font-size:22px">📌</div>
+      Bu sayfa için not yok
+    </div>
+  </div>
+
+  <div class="section-label" style="margin-top:14px">Yeni Not Ekle</div>
+  <div class="card">
+    <div class="input-group">
+      <textarea id="sticky-text" placeholder="Not içeriği..." style="min-height:70px"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span style="font-size:11px;color:var(--muted)">Renk:</span>
+      <div style="display:flex;gap:6px">
+        <div class="sticky-color" data-color="#fef08a" style="width:20px;height:20px;border-radius:4px;background:#fef08a;cursor:pointer;border:2px solid transparent" title="Sarı"></div>
+        <div class="sticky-color" data-color="#bbf7d0" style="width:20px;height:20px;border-radius:4px;background:#bbf7d0;cursor:pointer;border:2px solid transparent" title="Yeşil"></div>
+        <div class="sticky-color" data-color="#fecaca" style="width:20px;height:20px;border-radius:4px;background:#fecaca;cursor:pointer;border:2px solid transparent" title="Kırmızı"></div>
+        <div class="sticky-color" data-color="#bae6fd" style="width:20px;height:20px;border-radius:4px;background:#bae6fd;cursor:pointer;border:2px solid transparent" title="Mavi"></div>
+        <div class="sticky-color" data-color="#e9d5ff" style="width:20px;height:20px;border-radius:4px;background:#e9d5ff;cursor:pointer;border:2px solid transparent" title="Mor"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-accent btn-full" id="btn-add-sticky">📌 Not Ekle</button>
+  </div>
+</div>
+
+<div class="panel" id="panel-analiz">
+  <div class="section-label">Veri Seç</div>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <div style="flex:1">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Entity</div>
+      <select id="analiz-entity" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;font-size:12px;outline:none;">
+        <option value="">-- Entity seç --</option>
+      </select>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Group By</div>
+      <select id="analiz-groupby" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;font-size:12px;outline:none;">
+        <option value="">-- Alan seç --</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="section-label">Metrikler</div>
+  <div style="margin-bottom:4px;font-size:11px;color:var(--muted)">Sayısal alan seç, metrik ekle:</div>
+  <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
+    <select id="analiz-metric-field" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 9px;font-size:12px;outline:none;">
+      <option value="">-- Alan --</option>
+    </select>
+    <select id="analiz-metric-func" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 9px;font-size:12px;outline:none;">
+      <option value="SUM">SUM</option>
+      <option value="COUNT">COUNT</option>
+      <option value="AVG">AVG</option>
+      <option value="MIN">MIN</option>
+      <option value="MAX">MAX</option>
+      <option value="COUNT_DISTINCT">COUNT (tekil)</option>
+    </select>
+    <button id="btn-add-metric" class="btn" style="background:rgba(52,211,153,.15);border:1px solid #34d399;color:#34d399;padding:6px 10px;font-size:11px;white-space:nowrap">+ Ekle</button>
+  </div>
+
+  <div id="analiz-metrics-list" style="margin-bottom:10px;min-height:28px;display:flex;flex-wrap:wrap;gap:4px">
+    <span style="font-size:11px;color:var(--muted);padding:4px 0">Metrik eklenmedi</span>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:12px">
+    <button id="btn-analiz-run" class="btn btn-accent" style="flex:2;justify-content:center">▶ Analiz Çalıştır</button>
+    <button id="btn-analiz-reset" class="btn btn-ghost" style="flex:1;justify-content:center">Sıfırla</button>
+    <button id="btn-analiz-export" class="btn btn-ghost" style="flex:1;justify-content:center" disabled>⬇ Excel</button>
+  </div>
+
+  <div class="loading" id="analiz-loading"><div class="spinner" style="border-top-color:#34d399"></div><span>Hesaplanıyor...</span></div>
+
+  <div id="analiz-result" style="display:none">
+    <div class="section-label">
+      <span id="analiz-result-label">Sonuç</span>
+      <span id="analiz-result-count" class="badge badge-green" style="margin-left:4px"></span>
+    </div>
+    <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
+      <table class="analiz-table" id="analiz-table">
+        <thead id="analiz-thead"></thead>
+        <tbody id="analiz-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="analiz-empty" style="display:none" class="empty-state">
+    <div class="empty-icon">📈</div>
+    <div>Entity seç, group by ve metrik ekle, çalıştır</div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     AYARLAR
+════════════════════════════════════════════════ -->
+<div class="panel" id="panel-settings">
+  <div class="section-label">Uygulama</div>
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--text)">🐙 Ahtapot — IFS Toolkit</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">v<span id="settings-version">1.0.0</span></div>
+      </div>
+      <div style="font-size:28px">🐙</div>
+    </div>
+    <div style="font-size:10px;color:var(--muted);line-height:1.6">
+      IFS Cloud Aurena için danışman araç seti.<br>
+      Excel rapor, ortam etiketi, analiz, sticky notlar.
+    </div>
+  </div>
+
+  <div class="section-label">Dil / Language / Lingua</div>
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <button class="lang-btn btn" data-lang="tr" style="flex-direction:column;gap:4px;padding:10px 6px;font-size:18px">
+        🇹🇷<span style="font-size:10px;font-weight:600">Türkçe</span>
+      </button>
+      <button class="lang-btn btn" data-lang="en" style="flex-direction:column;gap:4px;padding:10px 6px;font-size:18px">
+        🇺🇸<span style="font-size:10px;font-weight:600">English</span>
+      </button>
+      <button class="lang-btn btn" data-lang="it" style="flex-direction:column;gap:4px;padding:10px 6px;font-size:18px">
+        🇮🇹<span style="font-size:10px;font-weight:600">Italiano</span>
+      </button>
+    </div>
+    <div id="settings-lang-info" style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center">
+      Aktif dil: <strong id="settings-active-lang">Türkçe</strong>
+    </div>
+  </div>
+
+  <div class="section-label">Veri</div>
+  <div class="card">
+    <button id="btn-clear-all-cache" class="btn btn-ghost btn-full" style="justify-content:center;margin-bottom:8px">
+      🗑 Tüm Cache'i Temizle
+    </button>
+    <button id="btn-clear-templates" class="btn btn-ghost btn-full" style="justify-content:center;color:#f85149;border-color:rgba(248,81,73,.3)">
+      🗑 Tüm Şablonları Sil
+    </button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="popup-bundle.js"></script>
+</body>
+</html>
