@@ -1,94 +1,115 @@
-# 🐙 Ahtapot — IFS Cloud Toolkit
+# 🐙 Ahtapot — ERP Toolkit
 
-**IFS Cloud Aurena için danışman araç seti. Chrome eklentisi.**
+> **TR** · Bulut ERP sistemleri için danışman ve kullanıcı araç seti  
+> **EN** · Consultant & user toolkit for cloud ERP systems
 
-> Excel rapor, ortam etiketi, çapraz kopyala, sticky notlar, veri analizi.
-
----
-
-## 🚀 Özellikler
-
-### 📊 Excel Rapor
-- IFS sayfasındaki verileri otomatik yakalar (fetch/XHR intercept)
-- Kendi Excel şablonunu yükle, `{{FieldName}}` etiketleriyle doldur
-- `{{#LINES}}...{{/LINES}}` bloğu ile satır verileri otomatik çoğaltılır
-- Birden fazla blok desteği — `{{#APPROVALS}}`, `{{#CHARGES}}` vs.
-- Excel ve HTML/PDF çıktısı
-
-### 🏷️ Ortam Etiketi
-- UAT, PROD, TEST ortamlarına renk ve ikon ata
-- Sayfanın üstünde renkli banner göster — yanlış ortamda çalışmayı önle
-
-### 🔄 Çapraz Kopyala
-- Bir ortamdaki veriyi başka ortama kopyala
-- Çakışma stratejisi: atla / güncelle / hata ver
-
-### 📌 Sticky Notlar
-- URL bazlı notlar — her IFS sayfasına özel
-- Renkli, sürüklenebilir
-
-### 📈 Analiz
-- Yakalanan veriler üzerinde Group By + metrik (SUM/COUNT/AVG/MIN/MAX)
-- Excel export
-
-### ⚙️ Ayarlar
-- 🇹🇷 Türkçe / 🇺🇸 English / 🇮🇹 Italiano dil desteği
-- Versiyon bilgisi
+[![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-v1.0.1-4285F4?style=flat-square&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com)
+[![Manifest V3](https://img.shields.io/badge/Manifest-V3-brightgreen?style=flat-square)](https://developer.chrome.com/docs/extensions/mv3/intro/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
 ---
 
-## 📦 Kurulum
+## 🇹🇷 Türkçe
 
-### Chrome Web Store (önerilen)
-> Yakında yayınlanacak
+### Nedir?
 
-### Manuel (Geliştirici Modu)
-1. Bu repoyu zip olarak indir veya `git clone` yap
-2. Chrome'da `chrome://extensions/` sayfasını aç
-3. Sağ üstte **"Geliştirici modu"**nu aç
-4. **"Paketlenmemiş öğe yükle"** → `extension/` klasörünü seç
+Ahtapot, bulut ERP sistemlerinde çalışan danışmanlar ve son kullanıcılar için geliştirilmiş bir Chrome eklentisidir. Sayfayı terk etmeden Excel raporu oluştur, ortam etiketini gör, çapraz kopyalama yap, sticky notlar bırak.
+
+### Özellikler
+
+| Özellik | Açıklama |
+|--------|----------|
+| 📊 **Excel Rapor** | Özel şablonlarla tek tıkla `.xlsx` raporu indir |
+| 🏷️ **Ortam Etiketi** | Test / Prod / Staging ortamını renkli banner ile ayırt et |
+| 📋 **Çapraz Kopyalama** | Farklı ortamlar arasında kayıt kopyala |
+| 📌 **Sticky Notlar** | Sayfa bazlı yapışkan not bırak, sürükle, düzenle |
+| 🔍 **Veri Analizi** | Yakalanan ERP verisini anlık analiz et |
+| ⚡ **Hızlı Rapor** | Widget üzerinden kayıtlı şablonu tek tıkla çalıştır |
+
+### Kurulum
+
+1. [Chrome Web Store](https://chromewebstore.google.com)'dan **Ahtapot — ERP Toolkit** eklentisini yükle
+2. ERP sisteminizin açık olduğu sekmede 🐙 ikonuna tıkla
+3. Şablon yüklemek için eklenti popup'ını kullan
+
+### Şablon Nasıl Hazırlanır?
+
+1. Popup → **Şablon** sekmesi → **Örnek İndir**
+2. İndirilen `.xlsx` dosyasını Excel'de aç ve düzenle
+3. Placeholder'lar: `{{AlanAdı}}` formatında
+4. Düzenlenmiş dosyayı **Şablon Yükle** ile kaydet
+
+### Gizlilik
+
+- Hiçbir veri dışarıya gönderilmez
+- Tüm veriler tarayıcınızın local storage'ında tutulur
+- Eklenti yalnızca aktif sekmedeki ERP verisini okur
 
 ---
 
-## 📄 Şablon Kullanımı
+## 🇬🇧 English
 
-Kendi Excel şablonunu oluştur:
+### What is it?
+
+Ahtapot is a Chrome extension built for consultants and end users working on cloud ERP systems. Generate Excel reports, identify environments, cross-copy records, and leave sticky notes — all without leaving the page.
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| 📊 **Excel Reports** | Download `.xlsx` reports in one click using custom templates |
+| 🏷️ **Environment Labels** | Distinguish Test / Prod / Staging with color-coded banners |
+| 📋 **Cross-Copy** | Copy records between different environments |
+| 📌 **Sticky Notes** | Leave page-specific notes, drag and edit them |
+| 🔍 **Data Analysis** | Instantly analyze captured ERP data |
+| ⚡ **Quick Report** | Run saved templates directly from the widget |
+
+### Installation
+
+1. Install **Ahtapot — ERP Toolkit** from the [Chrome Web Store](https://chromewebstore.google.com)
+2. Open your ERP system and click the 🐙 icon
+3. Use the extension popup to upload report templates
+
+### How to Prepare a Template
+
+1. Popup → **Template** tab → **Download Sample**
+2. Open the downloaded `.xlsx` in Excel and customize it
+3. Use `{{FieldName}}` format for placeholders
+4. Upload your customized file via **Upload Template**
+
+### Privacy
+
+- No data is sent to any external server
+- All data is stored in your browser's local storage
+- The extension only reads ERP data from the active tab
+
+---
+
+## 🛠️ Technical Details
+
+- **Manifest Version:** 3
+- **Minimum Chrome:** 111
+- **Permissions:** `activeTab`, `storage`, `tabs`
+- **Content Scripts:** Runs in `MAIN` world for fetch/XHR interception
+
+## 📁 File Structure
 
 ```
-{{OrderNo}}          → Sipariş numarası
-{{VendorName}}       → Tedarikçi adı
-{{TODAY}}            → Bugünün tarihi
-{{ENV}}              → IFS ortam adı
-
-{{#LINES}}
-  {{LineNo}}         → Satır numarası (her satır için tekrar)
-  {{PartNo}}         → Parça numarası
-  {{Description}}    → Açıklama
-  {{BuyQtyDue}}      → Miktar
-{{/LINES}}
+ahtapot/
+├── manifest.json        # Extension manifest (MV3)
+├── background.js        # Service worker — cache & message hub
+├── content.js           # Content script — UI injection & bridge
+├── injector.js          # MAIN world — fetch/XHR override
+├── widget.js            # MAIN world — floating widget
+├── popup.html           # Extension popup UI
+├── popup.js             # Popup logic
+├── popup-bundle.js      # Bundled report engine + popup
+├── report-engine.js     # Excel template engine
+├── xlsxwriter.js        # Pure-JS XLSX writer
+├── content.css          # Content script styles
+└── icons/               # Extension icons
 ```
 
-**Örnek şablon indirme:** Popup → Rapor → Header/Blok entity seç → Örnek İndir
+## 📄 License
 
----
-
-## 🛡️ Gizlilik
-
-Bu eklenti hiçbir veriyi dış sunucuya göndermez. Tüm veriler yerel Chrome storage'da tutulur. → [Privacy Policy](https://github.com/abb34/ahtapot-ifs-toolkit/blob/main/privacy-policy.html)
-
----
-
-## 📋 Gereksinimler
-
-- Chrome 103+
-- IFS Cloud Aurena (herhangi bir versiyon)
-
----
-
-## 🤝 Katkı
-
-Issue ve PR'lar hoş karşılanır.
-
----
-
-<p align="center">Made with 🐙 by <strong>Ali Birkan Binel</strong></p>
+MIT © 2025 — [abb34](https://github.com/abb34)
