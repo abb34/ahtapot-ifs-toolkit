@@ -845,7 +845,7 @@ const ReportEngine = (() => {
     }
   }
 
-  return { generateReport, generateSampleTemplate, analyzeTemplate };
+  return { generateReport, generateSampleTemplate, analyzeTemplate, _parseZipAsync: parseZipAsync };
 })();
 
 window.IFSReportEngine = ReportEngine;
@@ -1375,14 +1375,14 @@ async function generateReport(outputType) {
       showToast('📊 Excel indirildi!');
     } else {
       // PDF: HTML raporu oluştur, yeni sekmede aç, print dialog
-      const htmlContent = buildHtmlReport(headerRecord, lineRecords, selectedTemplate.name);
+      const htmlContent = await buildHtmlReport(headerRecord, blockData, selectedTemplate.name, templateBuffer);
       const htmlBlob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
       const htmlUrl = URL.createObjectURL(htmlBlob);
       const win = window.open(htmlUrl, '_blank');
       if (win) {
-        win.onload = () => setTimeout(() => win.print(), 400);
         addLog('PDF için HTML rapor açıldı', 'ok');
         showToast('🖨️ Yazdır penceresi açılıyor...');
+        setTimeout(() => { try { URL.revokeObjectURL(htmlUrl); } catch(e) {} }, 10000);
       } else {
         showToast('Popup engellendi — tarayıcı izni verin', 'error');
       }
@@ -1735,8 +1735,34 @@ const LANGS = {
     uploadTemplate: '📤 Şablon Yükle', downloadSample: '⬇️ Örnek İndir',
     generateExcel: '📊 Excel İndir', generatePdf: '🖨️ PDF',
     blockName: 'Blok Adı (şablonda {{#...}})',
-    addBlock: '+ Blok Ekle',
-    activeLang: 'Türkçe',
+    addBlock: '+ Blok Ekle', activeLang: 'Türkçe',
+    templateLabel: 'Şablon', dataMapping: 'Veri Eşleştirme',
+    headerData: 'Header Verisi (ana kayıt)', blockLabel: 'Blok Adı',
+    entitySelect: '-- Entity seç --', fieldSelect: '-- Alan seç --',
+    reportLoading: 'Rapor hazırlanıyor...', copyingLoading: 'Kopyalanıyor...',
+    calculating: 'Hesaplanıyor...',
+    removeEnv: '🗑 Kaldır', preview: '👁 Önizle',
+    runAnaliz: '▶ Analiz Çalıştır', resetAnaliz: 'Sıfırla',
+    result: 'Sonuç', iconLabel: 'İkon', labelLabel: 'Etiket', colorLabel: 'Renk',
+    conflictStrategy: 'Çakışma Stratejisi',
+    skip: 'Atla', update: 'Güncelle', error: 'Hata Ver',
+    notePlaceholder: 'Not içeriği...',
+    dataSelect: 'Veri Seç', metrics: 'Metrikler',
+    numericField: 'Sayısal alan seç, metrik ekle:',
+    noMetrics: 'Metrik eklenmedi',
+    entitySelectRun: 'Entity seç, group by ve metrik ekle, çalıştır',
+    clearAllCache: '🗑 Tüm Cache\'i Temizle', clearTemplates: '🗑 Tüm Şablonları Sil',
+    savedEnvs: 'Kayıtlı Ortamlar', currentEnv: 'Mevcut Ortam',
+    envColorLabel: 'Ortam Rengi & Etiketi', sourceData: 'Kaynak Veri',
+    targetEnv: 'Hedef Ortam', targetUrl: 'Hedef URL',
+    pageNotes: 'Bu Sayfadaki Notlar', addNewNote: 'Yeni Not Ekle',
+    appLabel: 'Uygulama', appDesc: 'Danışman ve son kullanıcılar için ERP araç seti.',
+    wWakeLockOn: 'Ekran kilidi aktif', wWakeLockOff: 'Ekran kilidi kapalı',
+    wNote: 'Hızlı Not', wNotePlaceholder: 'Bu sayfa için not ekle...',
+    wAddNote: '+ Not Ekle', wReports: 'Kayıtlı Raporlar',
+    wRun: '▶ Çalıştır', wNoTemplate: 'Kayıtlı şablon yok',
+    wNoTemplateHint: 'Popup arayüzünden şablon yükleyin', wLoading: 'Yükleniyor...',
+    capturedData: 'Yakalanan ERP Verisi',
   },
   en: {
     report: '📊 Report', env: '🏷️ Environment', cross: '🔄 Cross',
@@ -1747,8 +1773,34 @@ const LANGS = {
     uploadTemplate: '📤 Upload Template', downloadSample: '⬇️ Download Sample',
     generateExcel: '📊 Download Excel', generatePdf: '🖨️ PDF',
     blockName: 'Block Name (in template {{#...}})',
-    addBlock: '+ Add Block',
-    activeLang: 'English',
+    addBlock: '+ Add Block', activeLang: 'English',
+    templateLabel: 'Template', dataMapping: 'Data Mapping',
+    headerData: 'Header Data (main record)', blockLabel: 'Block Name',
+    entitySelect: '-- Select entity --', fieldSelect: '-- Select field --',
+    reportLoading: 'Generating report...', copyingLoading: 'Copying...',
+    calculating: 'Calculating...',
+    removeEnv: '🗑 Remove', preview: '👁 Preview',
+    runAnaliz: '▶ Run Analysis', resetAnaliz: 'Reset',
+    result: 'Result', iconLabel: 'Icon', labelLabel: 'Label', colorLabel: 'Color',
+    conflictStrategy: 'Conflict Strategy',
+    skip: 'Skip', update: 'Update', error: 'Error',
+    notePlaceholder: 'Note content...',
+    dataSelect: 'Select Data', metrics: 'Metrics',
+    numericField: 'Select numeric field, add metric:',
+    noMetrics: 'No metrics added',
+    entitySelectRun: 'Select entity, group by and metric, then run',
+    clearAllCache: '🗑 Clear All Cache', clearTemplates: '🗑 Delete All Templates',
+    savedEnvs: 'Saved Environments', currentEnv: 'Current Environment',
+    envColorLabel: 'Environment Color & Label', sourceData: 'Source Data',
+    targetEnv: 'Target Environment', targetUrl: 'Target URL',
+    pageNotes: 'Notes on This Page', addNewNote: 'Add New Note',
+    appLabel: 'Application', appDesc: 'ERP toolkit for consultants and end users.',
+    wWakeLockOn: 'Screen lock active', wWakeLockOff: 'Screen lock off',
+    wNote: 'Quick Note', wNotePlaceholder: 'Add a note for this page...',
+    wAddNote: '+ Add Note', wReports: 'Saved Reports',
+    wRun: '▶ Run', wNoTemplate: 'No saved templates',
+    wNoTemplateHint: 'Upload a template from the popup', wLoading: 'Loading...',
+    capturedData: 'Captured ERP Data',
   },
   it: {
     report: '📊 Report', env: '🏷️ Ambiente', cross: '🔄 Copia',
@@ -1759,8 +1811,34 @@ const LANGS = {
     uploadTemplate: '📤 Carica Template', downloadSample: '⬇️ Scarica Esempio',
     generateExcel: '📊 Scarica Excel', generatePdf: '🖨️ PDF',
     blockName: 'Nome Blocco (nel template {{#...}})',
-    addBlock: '+ Aggiungi Blocco',
-    activeLang: 'Italiano',
+    addBlock: '+ Aggiungi Blocco', activeLang: 'Italiano',
+    templateLabel: 'Template', dataMapping: 'Mappatura Dati',
+    headerData: 'Dati Header (record principale)', blockLabel: 'Nome Blocco',
+    entitySelect: '-- Seleziona entità --', fieldSelect: '-- Seleziona campo --',
+    reportLoading: 'Generazione report...', copyingLoading: 'Copia in corso...',
+    calculating: 'Calcolo in corso...',
+    removeEnv: '🗑 Rimuovi', preview: '👁 Anteprima',
+    runAnaliz: '▶ Esegui Analisi', resetAnaliz: 'Reset',
+    result: 'Risultato', iconLabel: 'Icona', labelLabel: 'Etichetta', colorLabel: 'Colore',
+    conflictStrategy: 'Strategia Conflitto',
+    skip: 'Salta', update: 'Aggiorna', error: 'Errore',
+    notePlaceholder: 'Contenuto nota...',
+    dataSelect: 'Seleziona Dati', metrics: 'Metriche',
+    numericField: 'Seleziona campo numerico, aggiungi metrica:',
+    noMetrics: 'Nessuna metrica aggiunta',
+    entitySelectRun: 'Seleziona entità, raggruppa e metrica, poi esegui',
+    clearAllCache: '🗑 Pulisci Tutta la Cache', clearTemplates: '🗑 Elimina Tutti i Template',
+    savedEnvs: 'Ambienti Salvati', currentEnv: 'Ambiente Corrente',
+    envColorLabel: 'Colore & Etichetta Ambiente', sourceData: 'Dati Sorgente',
+    targetEnv: 'Ambiente di Destinazione', targetUrl: 'URL Destinazione',
+    pageNotes: 'Note su Questa Pagina', addNewNote: 'Aggiungi Nuova Nota',
+    appLabel: 'Applicazione', appDesc: 'Toolkit ERP per consulenti e utenti finali.',
+    wWakeLockOn: 'Blocco schermo attivo', wWakeLockOff: 'Blocco schermo disattivo',
+    wNote: 'Nota Rapida', wNotePlaceholder: 'Aggiungi una nota per questa pagina...',
+    wAddNote: '+ Aggiungi Nota', wReports: 'Report Salvati',
+    wRun: '▶ Esegui', wNoTemplate: 'Nessun template salvato',
+    wNoTemplateHint: 'Carica un template dal popup', wLoading: 'Caricamento...',
+    capturedData: 'Dati ERP Acquisiti',
   }
 };
 
@@ -1788,11 +1866,87 @@ function applyLang(lang) {
     'btn-generate-excel': t.generateExcel,
     'btn-generate-pdf': t.generatePdf,
     'btn-add-block': t.addBlock,
+    'btn-remove-env': t.removeEnv,
+    'btn-cross-preview': t.preview,
+    'btn-analiz-run': t.runAnaliz,
+    'btn-analiz-reset': t.resetAnaliz,
+    'btn-clear-all-cache': t.clearAllCache,
+    'btn-clear-templates': t.clearTemplates,
   };
   Object.entries(btnMap).forEach(([id, label]) => {
     const el = document.getElementById(id);
     if (el) el.textContent = label;
   });
+
+  // Text elementler
+  const textMap = {
+    'settings-active-lang': t.activeLang,
+    'analiz-result-label': t.result,
+  };
+  Object.entries(textMap).forEach(([id, label]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = label;
+  });
+
+  // Section label'lar (data-i18n attribute ile)
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if (!t[key]) return;
+    // Child elementi olan elementlerde sadece ilk text node'u güncelle
+    const hasChildren = el.children.length > 0;
+    if (hasChildren) {
+      // İlk text node'u bul ve güncelle
+      for (let node of el.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+          node.textContent = t[key];
+          return;
+        }
+      }
+      // Text node yoksa prepend et
+      el.prepend(document.createTextNode(t[key]));
+    } else {
+      el.textContent = t[key];
+    }
+  });
+
+  // Loading spinnerlar
+  const loadingMap = {
+    'report-loading': t.reportLoading,
+    'cross-loading': t.copyingLoading,
+  };
+  Object.entries(loadingMap).forEach(([id, label]) => {
+    const el = document.getElementById(id);
+    if (el) { const span = el.querySelector('span'); if (span) span.textContent = label; }
+  });
+
+  // Select placeholder option'ları
+  document.querySelectorAll('select option[value=""]').forEach(opt => {
+    if (opt.textContent.includes('Entity') || opt.textContent.includes('seç') || opt.textContent.includes('Select') || opt.textContent.includes('Seleziona')) {
+      opt.textContent = t.entitySelect;
+    }
+    if (opt.textContent.includes('Alan') || opt.textContent.includes('field') || opt.textContent.includes('campo')) {
+      opt.textContent = t.fieldSelect;
+    }
+  });
+
+  // Textarea placeholder'ları
+  const sticky = document.getElementById('sticky-text');
+  if (sticky) sticky.placeholder = t.notePlaceholder;
+
+  // noData mesajı güncelle (eğer görünüyorsa)
+  const emptyState = document.querySelector('#data-entities .empty-state div:not(.empty-icon)');
+  if (emptyState) emptyState.textContent = t.noData;
+
+  // Widget dil güncelleme — sendToContent ile ilet
+  try {
+    sendToContent({ type: 'AHTAPOT_SET_LANG', lang, strings: {
+      wakeLockOn: t.wWakeLockOn, wakeLockOff: t.wWakeLockOff,
+      note: t.wNote, notePlaceholder: t.wNotePlaceholder,
+      addNote: t.wAddNote, reports: t.wReports,
+      run: t.wRun, noTemplate: t.wNoTemplate,
+      noTemplateHint: t.wNoTemplateHint, loading: t.wLoading,
+    }});
+  } catch(e) {}
 
   // Aktif dil göster
   const activeLangEl = document.getElementById('settings-active-lang');
@@ -1859,38 +2013,294 @@ function getBlockMappings() {
 
 
 // ─── HTML RAPOR OLUŞTURUCU ─────────────────────────────────
-function buildHtmlReport(headerRecord, lineRecords, templateName) {
+// ─── HTML RAPOR OLUŞTURUCU ─────────────────────────────────
+// Şablonu okuyup birebir HTML'e çevirir
+async function buildHtmlReport(headerRecord, blockData, templateName, templateBuffer) {
   const today = new Date().toLocaleDateString('tr-TR');
-  const now = new Date().toLocaleTimeString('tr-TR');
+  const now   = new Date().toLocaleTimeString('tr-TR');
 
-  // Header alanları - boş olmayanlar
-  const headerRows = Object.entries(headerRecord)
-    .filter(([k, v]) => v !== null && v !== '' && !k.startsWith('@') && k !== 'luname' && k !== 'keyref')
-    .map(([k, v]) => `<tr><td class="lbl">${k}</td><td>${v}</td></tr>`)
-    .join('');
+  // Sistem değerleri
+  const sysVals = {
+    TODAY: today, NOW: new Date().toLocaleString('tr-TR'),
+    ENV: currentHostname || window.location.hostname,
+    YEAR: String(new Date().getFullYear()),
+    MONTH: String(new Date().getMonth()+1).padStart(2,'0'),
+    DAY:   String(new Date().getDate()).padStart(2,'0'),
+  };
 
-  // Line kayıtları
-  let linesHtml = '';
-  if (lineRecords && lineRecords.length > 0) {
-    const keys = Object.keys(lineRecords[0]).filter(k =>
-      !k.startsWith('@') && k !== 'luname' && k !== 'keyref' &&
-      lineRecords[0][k] !== null && lineRecords[0][k] !== ''
-    );
-    // Önemli alanlar önce
-    const priority = ['LineNo','PartNo','Description','BuyQtyDue','BuyUnitMeas',
-      'BuyUnitPrice','NetAmtCurr','TaxAmount','GrossAmtCurr','PlannedReceiptDate','Objstate'];
-    const sorted = [...new Set([...priority.filter(k => keys.includes(k)), ...keys])].slice(0, 15);
+  // Tüm veri birleşimi (sistem + header)
+  const allData = Object.assign({}, sysVals, headerRecord);
 
-    const thead = sorted.map(k => `<th>${k}</th>`).join('');
-    const tbody = lineRecords.map((rec, i) =>
-      '<tr class="' + (i % 2 === 0 ? 'even' : 'odd') + '">' +
-      sorted.map(k => `<td>${rec[k] ?? ''}</td>`).join('') +
-      '</tr>'
-    ).join('');
+  // {{Field}} replace — tek kayıt için
+  function replacePlaceholders(text, data) {
+    return String(text || '').replace(/\{\{([A-Za-z0-9_@]+)\}\}/g, (_, f) => {
+      const v = data[f];
+      return (v !== undefined && v !== null) ? String(v) : '';
+    });
+  }
 
-    linesHtml = `
-      <h2>Malzeme Satırları <span class="badge">${lineRecords.length} kayıt</span></h2>
-      <table class="lines"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;
+  // Renk hex → CSS (ARGB'den RGB'ye: ilk 2 karakter alpha)
+  function toCSS(hex) {
+    if (!hex || hex === '00000000' || hex === 'FF000000') return null;
+    const rgb = hex.length === 8 ? hex.slice(2) : hex;
+    if (rgb === '000000') return null;
+    return '#' + rgb;
+  }
+
+  // Şablonu varsa kullan, yoksa fallback
+  if (!templateBuffer) {
+    return buildHtmlReportFallback(headerRecord, blockData, templateName);
+  }
+
+  // ── Şablonu XML olarak parse et ──────────────────────────
+  let sheetRows = null;
+  let mergedCells = {};
+  let sharedStrings = [];
+
+  try {
+    const bytes = new Uint8Array(templateBuffer);
+    const zip = await window.IFSReportEngine._parseZipAsync
+      ? await window.IFSReportEngine._parseZipAsync(bytes)
+      : null;
+
+    // Direkt base64 decode + ZIP parse (browser native)
+    const files = {};
+    const dec = new TextDecoder('utf-8');
+
+    // ZIP local file entries
+    let i = 0;
+    while (i < bytes.length - 4) {
+      const sig = (bytes[i]) | (bytes[i+1]<<8) | (bytes[i+2]<<16) | (bytes[i+3]<<24);
+      if (sig === 0x04034b50) {
+        const comp  = bytes[i+8]  | (bytes[i+9]<<8);
+        const csz   = (bytes[i+18]) | (bytes[i+19]<<8) | (bytes[i+20]<<16) | (bytes[i+21]<<24);
+        const fnLen = bytes[i+26] | (bytes[i+27]<<8);
+        const exLen = bytes[i+28] | (bytes[i+29]<<8);
+        const name  = dec.decode(bytes.slice(i+30, i+30+fnLen));
+        const start = i+30+fnLen+exLen;
+        const data  = bytes.slice(start, start+csz);
+        if (comp === 0) {
+          try { files[name] = dec.decode(data); } catch(e) { files[name] = ''; }
+        } else if (comp === 8) {
+          try {
+            const ds = new DecompressionStream('deflate-raw');
+            const w  = ds.writable.getWriter();
+            const r  = ds.readable.getReader();
+            w.write(data); w.close();
+            const chunks = [];
+            while (true) { const {done, value} = await r.read(); if (done) break; chunks.push(value); }
+            const total = chunks.reduce((s,c) => s+c.length, 0);
+            const out = new Uint8Array(total); let off = 0;
+            chunks.forEach(c => { out.set(c, off); off += c.length; });
+            files[name] = dec.decode(out);
+          } catch(e) { files[name] = ''; }
+        }
+        i = start + csz;
+      } else if (sig === 0x02014b50 || sig === 0x06054b50) { break; }
+      else { i++; }
+    }
+
+    // Shared strings
+    if (files['xl/sharedStrings.xml']) {
+      const re = /<si>([\s\S]*?)<\/si>/g;
+      let m;
+      while ((m = re.exec(files['xl/sharedStrings.xml'])) !== null) {
+        const inner = m[1];
+        let text = '';
+        const tr = /<t[^>]*>([\s\S]*?)<\/t>/g;
+        let tm;
+        while ((tm = tr.exec(inner)) !== null) text += tm[1];
+        sharedStrings.push(text.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'"));
+      }
+    }
+
+    // Sheet XML
+    const sheetKey = Object.keys(files).find(k => /xl\/worksheets\/sheet\d*\.xml/i.test(k));
+    if (!sheetKey || !files[sheetKey]) throw new Error('sheet not found');
+    const sheetXML = files[sheetKey];
+
+    // Merged cells
+    const mergeRe = /<mergeCell ref="([^"]+)"/g;
+    let mm;
+    while ((mm = mergeRe.exec(sheetXML)) !== null) {
+      const ref = mm[1]; // e.g. A1:H1
+      const [from, to] = ref.split(':');
+      mergedCells[from] = ref;
+    }
+
+    // Satırları parse et
+    sheetRows = [];
+    const rowRe = /<row[^>]*r="(\d+)"[^>]*>([\s\S]*?)<\/row>/g;
+    let rm;
+    while ((rm = rowRe.exec(sheetXML)) !== null) {
+      const rowNum = parseInt(rm[1]);
+      const rowContent = rm[2];
+      const cells = [];
+      const cellRe = /<c r="([A-Z]+\d+)"([^>]*)>([\s\S]*?)<\/c>/g;
+      let cm;
+      while ((cm = cellRe.exec(rowContent)) !== null) {
+        const ref   = cm[1];
+        const attrs = cm[2];
+        const inner = cm[3];
+        const col   = ref.replace(/\d+/,'');
+        const type  = (attrs.match(/t="([^"]+)"/) || [])[1];
+        const style = (attrs.match(/s="([^"]+)"/) || [])[1];
+        let value = '';
+        const vMatch = inner.match(/<v>([\s\S]*?)<\/v>/);
+        const tMatch = inner.match(/<t[^>]*>([\s\S]*?)<\/t>/);
+        if (tMatch) { value = tMatch[1]; }
+        else if (vMatch) {
+          if (type === 's') { value = sharedStrings[parseInt(vMatch[1])] || ''; }
+          else { value = vMatch[1]; }
+        }
+        cells.push({ ref, col, rowNum, value, type, style, mergeRef: mergedCells[ref] || null });
+      }
+      sheetRows.push({ rowNum, cells });
+    }
+  } catch(e) {
+    return buildHtmlReportFallback(headerRecord, blockData, templateName);
+  }
+
+  // ── Şablonu HTML'e render et ──────────────────────────────
+  // Blok sınırlarını bul
+  let blockStartRow = -1, blockEndRow = -1, blockTemplateRows = [];
+  let blockName = 'LINES';
+  for (const row of sheetRows) {
+    for (const cell of row.cells) {
+      if (/^\{\{#([A-Za-z0-9_]+)\}\}$/.test(cell.value.trim())) {
+        blockStartRow = row.rowNum;
+        blockName = cell.value.trim().replace(/\{\{#|\}\}/g,'');
+      }
+      if (/^\{\{\/([A-Za-z0-9_]+)\}\}$/.test(cell.value.trim())) {
+        blockEndRow = row.rowNum;
+      }
+    }
+    if (blockStartRow > 0 && blockEndRow < 0 && row.rowNum > blockStartRow) {
+      blockTemplateRows.push(row);
+    }
+  }
+
+  const lineRecords = (blockData && blockData[blockName]) || (blockData && Object.values(blockData)[0]) || [];
+
+  // Merge helper: A1:H1 → colspan/rowspan
+  function getMergeSpan(mergeRef) {
+    if (!mergeRef) return { colspan: 1, rowspan: 1 };
+    const [from, to] = mergeRef.split(':');
+    const fromCol = from.replace(/\d+/,''); const fromRow = parseInt(from.replace(/\D+/,''));
+    const toCol   = to.replace(/\D+/,'') || toCol;
+    const toRow   = parseInt(to.replace(/\D+/,''));
+    // Sütun sayısı
+    function colIdx(c) {
+      let n = 0;
+      for (let i = 0; i < c.length; i++) n = n * 26 + (c.charCodeAt(i) - 64);
+      return n;
+    }
+    return {
+      colspan: colIdx(to.replace(/\d+/,'')) - colIdx(from.replace(/\d+/,'')) + 1,
+      rowspan: toRow - fromRow + 1
+    };
+  }
+
+  // Merge edilmiş hücrelerin sağ/alt hücrelerini atla
+  const skipCells = new Set();
+  for (const [ref, range] of Object.entries(mergedCells)) {
+    const [from, to] = range.split(':');
+    if (from === to) continue;
+    const fromCol = from.replace(/\d+/,'');
+    const fromRow = parseInt(from.replace(/\D+/,''));
+    const toCol   = to.replace(/\d+/,'');
+    const toRow   = parseInt(to.replace(/\D+/,''));
+    function colIdx(c) { let n=0; for(let i=0;i<c.length;i++) n=n*26+(c.charCodeAt(i)-64); return n; }
+    for (let r = fromRow; r <= toRow; r++) {
+      for (let c = colIdx(fromCol); c <= colIdx(toCol); c++) {
+        const colStr = String.fromCharCode(64 + c);
+        const cellRef = colStr + r;
+        if (cellRef !== from) skipCells.add(cellRef);
+      }
+    }
+  }
+
+  // Satırı HTML'e çevir
+  function renderRow(row, dataRecord, rowIdx) {
+    if (!row.cells.length) return '';
+    let html = '<tr>';
+    for (const cell of row.cells) {
+      if (skipCells.has(cell.ref)) continue;
+      const { colspan, rowspan } = getMergeSpan(cell.mergeRef);
+      const spanAttrs = (colspan > 1 ? ` colspan="${colspan}"` : '') + (rowspan > 1 ? ` rowspan="${rowspan}"` : '');
+
+      // Değeri replace et
+      const val = dataRecord ? replacePlaceholders(cell.value, dataRecord) : replacePlaceholders(cell.value, allData);
+
+      // Basit stil (şablondaki renkler)
+      let style = 'padding:4px 8px;border:1px solid #e0e0e0;font-size:11px;';
+      // Satır indeksine göre zebra (sadece line satırları için)
+      if (dataRecord && rowIdx !== undefined) {
+        style += rowIdx % 2 === 0 ? 'background:#f9f5ff;' : 'background:#fff;';
+      }
+      html += `<td${spanAttrs} style="${style}">${val}</td>`;
+    }
+    html += '</tr>';
+    return html;
+  }
+
+  // Tüm satırları render et
+  let tableHtml = '<table style="width:100%;border-collapse:collapse;">';
+  let inBlock = false;
+
+  for (const row of sheetRows) {
+    // Block start/end satırlarını atla
+    if (row.rowNum === blockStartRow || row.rowNum === blockEndRow) continue;
+    // Block template satırlarını atla (aşağıda ayrıca render edeceğiz)
+    if (blockTemplateRows.some(r => r.rowNum === row.rowNum)) continue;
+
+    // Block'tan önceki son normal satırdan sonra satırları ekle
+    if (blockStartRow > 0 && row.rowNum === blockStartRow + blockTemplateRows.length + 2) {
+      // Line header (sütun başlıkları — blockStartRow+1'deki satır)
+      if (blockTemplateRows.length > 0) {
+        // İlk template satırı sütun başlıkları
+        tableHtml += renderRow(blockTemplateRows[0], null, undefined);
+        // Veri satırları
+        const dataRows = blockTemplateRows.slice(1);
+        if (dataRows.length > 0 && lineRecords.length > 0) {
+          lineRecords.forEach((rec, idx) => {
+            dataRows.forEach(tRow => {
+              tableHtml += renderRow(tRow, Object.assign({}, allData, rec), idx);
+            });
+          });
+        }
+      }
+    }
+
+    tableHtml += renderRow(row, null, undefined);
+  }
+
+  tableHtml += '</table>';
+
+  // Eğer block başlangıcı en sondaysa (normal durum — blok tablo en altta)
+  if (blockStartRow > 0 && !tableHtml.includes('{{')) {
+    // Zaten işlendi
+  } else if (blockStartRow > 0) {
+    // Block render edilmemişse sona ekle
+    tableHtml = '<table style="width:100%;border-collapse:collapse;">';
+    for (const row of sheetRows) {
+      if (row.rowNum === blockStartRow || row.rowNum === blockEndRow) continue;
+      if (blockTemplateRows.some(r => r.rowNum === row.rowNum)) continue;
+      tableHtml += renderRow(row, null, undefined);
+    }
+    // Block
+    if (blockTemplateRows.length > 0) {
+      tableHtml += renderRow(blockTemplateRows[0], null, undefined);
+      const dataRows = blockTemplateRows.slice(1);
+      if (dataRows.length > 0 && lineRecords.length > 0) {
+        lineRecords.forEach((rec, idx) => {
+          dataRows.forEach(tRow => {
+            tableHtml += renderRow(tRow, Object.assign({}, allData, rec), idx);
+          });
+        });
+      }
+    }
+    tableHtml += '</table>';
   }
 
   return `<!DOCTYPE html>
@@ -1901,77 +2311,86 @@ function buildHtmlReport(headerRecord, lineRecords, templateName) {
 <style>
   @page { size: A4 landscape; margin: 12mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1a1a2e; background: #fff; }
-
-  .header { background: linear-gradient(135deg, #6B2D8B, #9B4DC8); color: #fff;
-    padding: 14px 20px; display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 16px; border-radius: 4px; }
-  .header h1 { font-size: 16px; font-weight: 700; }
-  .header .meta { font-size: 10px; opacity: .85; margin-top: 3px; }
-  .header .logo { font-size: 32px; }
-
-  h2 { font-size: 11px; font-weight: 700; color: #6B2D8B; letter-spacing: .5px;
-    text-transform: uppercase; margin: 12px 0 6px; padding-bottom: 4px;
-    border-bottom: 2px solid #9B4DC8; }
-  .badge { background: rgba(107,45,139,.15); color: #6B2D8B; border-radius: 10px;
-    padding: 1px 8px; font-size: 10px; font-weight: 600; }
-
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1a1a2e; background: #fff; padding: 16px; }
   table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-  table.info td, table.info th { padding: 4px 8px; border: 1px solid #e0e0e0; }
-  table.info .lbl { background: #f3e8ff; color: #4A1060; font-weight: 600;
-    width: 180px; white-space: nowrap; }
-  table.info tr:nth-child(even) td:not(.lbl) { background: #fafafa; }
-
-  table.lines th { background: #6B2D8B; color: #fff; padding: 5px 6px;
-    text-align: left; font-size: 10px; white-space: nowrap; }
-  table.lines td { padding: 4px 6px; border-bottom: 1px solid #eee; white-space: nowrap; }
-  table.lines tr.even td { background: #f9f5ff; }
-  table.lines tr:hover td { background: #ede0ff; }
-
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
-  .grid table { margin: 0; }
-
-  .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #e0e0e0;
-    font-size: 9px; color: #888; display: flex; justify-content: space-between; }
-
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .no-print { display: none; }
-  }
+  td, th { padding: 4px 8px; border: 1px solid #ddd; font-size: 11px; vertical-align: middle; }
+  .no-print { margin-bottom: 12px; }
+  .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #e0e0e0; font-size: 9px; color: #888; display: flex; justify-content: space-between; }
+  @media print { body { padding: 0; } .no-print { display: none; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style>
 </head>
 <body>
-
-<div class="header">
-  <div>
-    <div class="h1" style="font-size:16px;font-weight:700">${templateName || 'ERP Rapor'}</div>
-    <div class="meta">Oluşturulma: ${today} ${now}</div>
-  </div>
-  <div class="logo">🐙</div>
+<div class="no-print">
+  <button onclick="(function(){try{window.print()}catch(e){document.querySelector('body').style.display='block';window.print()}})()" style="padding:7px 18px;background:#6B2D8B;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">
+    🖨️ PDF Olarak Kaydet
+  </button>
 </div>
-
-<button class="no-print" onclick="window.print()" style="margin-bottom:12px;padding:7px 18px;
-  background:#6B2D8B;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">
-  🖨️ PDF Olarak Kaydet
-</button>
-
-<h2>Sipariş Bilgileri</h2>
-<div class="grid">
-  <table class="info"><tbody>${headerRows}</tbody></table>
-</div>
-
-${linesHtml}
-
+<script>
+  // Sayfa yüklenince otomatik print diyaloğunu aç
+  window.addEventListener('load', function() {
+    setTimeout(function() { try { window.print(); } catch(e) {} }, 600);
+  });
+</script>
+${tableHtml}
 <div class="footer">
   <span>🐙 Ahtapot — ERP Toolkit</span>
   <span>${today} ${now}</span>
 </div>
-
 </body></html>`;
 }
 
+// ─── FALLBACK HTML RAPOR (şablon yoksa) ────────────────────
+function buildHtmlReportFallback(headerRecord, blockData, templateName) {
+  const today = new Date().toLocaleDateString('tr-TR');
+  const now   = new Date().toLocaleTimeString('tr-TR');
+  const META  = new Set(['luname','keyref','Objgrants','Objstate','Objkey','ParentObjkey','Objid','Objversion']);
+
+  const headerRows = Object.entries(headerRecord)
+    .filter(([k,v]) => v !== null && v !== '' && !k.startsWith('@') && !META.has(k))
+    .map(([k,v]) => `<tr><td style="background:#f3e8ff;color:#4A1060;font-weight:600;padding:4px 8px;border:1px solid #e0e0e0;width:200px">${k}</td><td style="padding:4px 8px;border:1px solid #e0e0e0">${v}</td></tr>`)
+    .join('');
+
+  let linesHtml = '';
+  const firstBlock = blockData && Object.values(blockData)[0];
+  if (firstBlock && firstBlock.length > 0) {
+    const keys = Object.keys(firstBlock[0]).filter(k => !k.startsWith('@') && !META.has(k)).slice(0, 12);
+    const thead = keys.map(k => `<th style="background:#6B2D8B;color:#fff;padding:5px 6px;font-size:10px;white-space:nowrap">${k}</th>`).join('');
+    const tbody = firstBlock.map((rec, i) =>
+      '<tr>' + keys.map(k => `<td style="padding:4px 6px;border-bottom:1px solid #eee;background:${i%2===0?'#f9f5ff':'#fff'}">${rec[k]??''}</td>`).join('') + '</tr>'
+    ).join('');
+    linesHtml = `<h2 style="font-size:11px;font-weight:700;color:#6B2D8B;margin:12px 0 6px;padding-bottom:4px;border-bottom:2px solid #9B4DC8">Satırlar</h2>
+    <table style="width:100%;border-collapse:collapse"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;
+  }
+
+  return `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><title>${templateName||'ERP Rapor'}</title>
+  <style>@page{size:A4 landscape;margin:12mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#1a1a2e;background:#fff;padding:16px}@media print{.no-print{display:none}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
+  </head><body>
+  <div class="no-print" style="margin-bottom:12px"><button onclick="window.print()" style="padding:7px 18px;background:#6B2D8B;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">🖨️ PDF Olarak Kaydet</button></div>
+  <div style="background:linear-gradient(135deg,#6B2D8B,#9B4DC8);color:#fff;padding:14px 20px;border-radius:4px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+    <div><div style="font-size:16px;font-weight:700">${templateName||'ERP Rapor'}</div><div style="font-size:10px;opacity:.85">Oluşturulma: ${today} ${now}</div></div>
+    <div style="font-size:32px">🐙</div>
+  </div>
+  <h2 style="font-size:11px;font-weight:700;color:#6B2D8B;margin:0 0 6px;padding-bottom:4px;border-bottom:2px solid #9B4DC8">Bilgiler</h2>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:12px"><tbody>${headerRows}</tbody></table>
+  ${linesHtml}
+  <div style="margin-top:16px;padding-top:8px;border-top:1px solid #e0e0e0;font-size:9px;color:#888;display:flex;justify-content:space-between">
+    <span>🐙 Ahtapot — ERP Toolkit</span><span>${today} ${now}</span>
+  </div>
+  </body></html>`;
+}
+
+
 // ─── INIT ─────────────────────────────────────────────────
 (async () => {
+  // DOM hazır olana kadar bekle
+  await new Promise(resolve => {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', resolve);
+    } else {
+      resolve();
+    }
+  });
+
   try { await detectPage(); } catch(e) { console.warn('detectPage:', e); }
   try { await refreshCache(); } catch(e) { console.warn('refreshCache:', e); }
   try { await renderTemplateList(); } catch(e) { console.warn('renderTemplateList:', e); }

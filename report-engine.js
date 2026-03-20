@@ -596,7 +596,7 @@ const ReportEngine = (() => {
     }
   }
 
-  return { generateReport, generateSampleTemplate, analyzeTemplate };
+  return { generateReport, generateSampleTemplate, analyzeTemplate, _parseZipAsync: parseZipAsync };
 })();
 
 window.IFSReportEngine = ReportEngine;

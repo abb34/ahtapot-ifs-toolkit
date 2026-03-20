@@ -169,7 +169,7 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
 <div class="panel active" id="panel-report">
 
   <!-- Yakalanan Veri -->
-  <div class="section-label">Yakalanan ERP Verisi</div>
+  <div class="section-label" data-i18n="capturedData">Yakalanan ERP Verisi</div>
   <div id="entity-list">
     <div class="empty-state">
       <div class="empty-icon">📡</div>
@@ -183,7 +183,7 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
   </div>
 
   <!-- Şablon Seçimi -->
-  <div class="section-label">Şablon</div>
+  <div class="section-label" data-i18n="templateLabel">Şablon</div>
   <div id="template-list">
     <div class="empty-state" style="padding:12px 0">
       <div class="empty-icon" style="font-size:20px">📂</div>
@@ -199,12 +199,12 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
 
   <!-- Blok Eşleştirme -->
   <div class="section-label" style="display:flex;justify-content:space-between;align-items:center">
-    <span>Veri Eşleştirme</span>
+    <span data-i18n="dataMapping">Veri Eşleştirme</span>
     <button id="btn-add-block" class="btn" style="font-size:10px;padding:3px 8px;background:rgba(155,77,200,.15);border:1px solid #9B4DC8;color:#9B4DC8">+ Blok Ekle</button>
   </div>
   <div class="card" id="mapping-card">
     <div class="input-group" style="margin-bottom:8px">
-      <label>Header Verisi (ana kayıt)</label>
+      <label data-i18n="headerData">Header Verisi (ana kayıt)</label>
       <select id="header-entity-select">
         <option value="">-- Entity seç --</option>
       </select>
@@ -212,7 +212,7 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
     <div id="block-mappings">
       <div class="block-mapping-row" data-block="LINES" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
         <div style="flex:1">
-          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Blok Adı</div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px" data-i18n="blockLabel">Blok Adı</div>
           <input type="text" value="LINES" class="block-name-input" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;font-size:11px;font-family:monospace">
         </div>
         <div style="flex:2">
@@ -227,7 +227,7 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
   </div>
 
   <!-- Rapor Oluştur -->
-  <div class="loading" id="report-loading"><div class="spinner"></div><span>Rapor hazırlanıyor...</span></div>
+  <div class="loading" id="report-loading"><div class="spinner"></div><span data-i18n="reportLoading">Rapor hazırlanıyor...</span></div>
 
   <div class="btn-row">
     <button class="btn btn-accent btn-full" id="btn-generate-excel">📊 Excel İndir</button>
@@ -243,23 +243,23 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
      ORTAM ETİKETİ
 ════════════════════════════════════════════════ -->
 <div class="panel" id="panel-env">
-  <div class="section-label">Mevcut Ortam</div>
+  <div class="section-label" data-i18n="currentEnv">Mevcut Ortam</div>
   <div class="card">
     <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Aktif URL</div>
     <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent)" id="current-hostname">—</div>
   </div>
-  <div class="section-label">Ortam Rengi & Etiketi</div>
+  <div class="section-label" data-i18n="envColorLabel">Ortam Rengi & Etiketi</div>
   <div class="card" style="margin-bottom:12px">
     <div class="input-group" style="margin-bottom:8px">
-      <label>Etiket</label>
+      <label data-i18n="labelLabel">Etiket</label>
       <input type="text" id="env-label" placeholder="UAT, PROD, TEST...">
     </div>
     <div class="input-group" style="margin-bottom:8px">
-      <label>Renk</label>
+      <label data-i18n="colorLabel">Renk</label>
       <div id="env-colors" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"></div>
     </div>
     <div class="input-group" style="margin-bottom:8px">
-      <label>İkon</label>
+      <label data-i18n="iconLabel">İkon</label>
       <div id="env-icons" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"></div>
       <input type="hidden" id="env-icon" value="⚠️">
     </div>
@@ -268,7 +268,7 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
       <button class="btn btn-danger" style="flex:1;justify-content:center" id="btn-remove-env">🗑 Kaldır</button>
     </div>
   </div>
-  <div class="section-label">Kayıtlı Ortamlar</div>
+  <div class="section-label" data-i18n="savedEnvs">Kayıtlı Ortamlar</div>
   <div id="env-list"></div>
 </div>
 
@@ -276,7 +276,7 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
      ÇAPRAZ KOPYALA
 ════════════════════════════════════════════════ -->
 <div class="panel" id="panel-cross">
-  <div class="section-label">Kaynak Veri</div>
+  <div class="section-label" data-i18n="sourceData">Kaynak Veri</div>
   <div class="card" style="margin-bottom:12px">
     <div class="input-group" style="margin-bottom:8px">
       <label>Entity</label>
@@ -288,20 +288,20 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
     <div id="cross-preview" style="margin-top:8px;font-size:11px;color:var(--muted);max-height:120px;overflow-y:auto">
       <div id="cross-preview-box"></div>
     </div>
-    <div class="loading" id="cross-loading"><div class="spinner"></div><span>Kopyalanıyor...</span></div>
+    <div class="loading" id="cross-loading"><div class="spinner"></div><span data-i18n="copyingLoading">Kopyalanıyor...</span></div>
   </div>
-  <div class="section-label">Hedef Ortam</div>
+  <div class="section-label" data-i18n="targetEnv">Hedef Ortam</div>
   <div class="card">
     <div class="input-group" style="margin-bottom:8px">
-      <label>Hedef URL</label>
+      <label data-i18n="targetUrl">Hedef URL</label>
       <input type="text" id="cross-target-url" placeholder="https://target.ifs.cloud/...">
     </div>
     <div class="input-group" style="margin-bottom:8px">
-      <label>Çakışma Stratejisi</label>
+      <label data-i18n="conflictStrategy">Çakışma Stratejisi</label>
       <select id="cross-conflict">
-        <option value="skip">Atla</option>
-        <option value="update">Güncelle</option>
-        <option value="error">Hata Ver</option>
+        <option value="skip" data-i18n-opt="skip">Atla</option>
+        <option value="update" data-i18n-opt="update">Güncelle</option>
+        <option value="error" data-i18n-opt="error">Hata Ver</option>
       </select>
     </div>
     <button class="btn btn-accent btn-full" id="btn-cross-copy">🔄 Kopyala</button>
@@ -309,7 +309,7 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
 </div>
 
 <div class="panel" id="panel-sticky">
-  <div class="section-label">Bu Sayfadaki Notlar</div>
+  <div class="section-label" data-i18n="pageNotes">Bu Sayfadaki Notlar</div>
   <div id="sticky-list">
     <div class="empty-state" style="padding:12px 0">
       <div class="empty-icon" style="font-size:22px">📌</div>
@@ -317,7 +317,7 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
     </div>
   </div>
 
-  <div class="section-label" style="margin-top:14px">Yeni Not Ekle</div>
+  <div class="section-label" style="margin-top:14px" data-i18n="addNewNote">Yeni Not Ekle</div>
   <div class="card">
     <div class="input-group">
       <textarea id="sticky-text" placeholder="Not içeriği..." style="min-height:70px"></textarea>
@@ -340,7 +340,7 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
 </div>
 
 <div class="panel" id="panel-analiz">
-  <div class="section-label">Veri Seç</div>
+  <div class="section-label" data-i18n="dataSelect">Veri Seç</div>
   <div style="display:flex;gap:8px;margin-bottom:10px">
     <div style="flex:1">
       <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Entity</div>
@@ -356,8 +356,8 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
     </div>
   </div>
 
-  <div class="section-label">Metrikler</div>
-  <div style="margin-bottom:4px;font-size:11px;color:var(--muted)">Sayısal alan seç, metrik ekle:</div>
+  <div class="section-label" data-i18n="metrics">Metrikler</div>
+  <div style="margin-bottom:4px;font-size:11px;color:var(--muted)" data-i18n="numericField">Sayısal alan seç, metrik ekle:</div>
   <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
     <select id="analiz-metric-field" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 9px;font-size:12px;outline:none;">
       <option value="">-- Alan --</option>
@@ -374,7 +374,7 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
   </div>
 
   <div id="analiz-metrics-list" style="margin-bottom:10px;min-height:28px;display:flex;flex-wrap:wrap;gap:4px">
-    <span style="font-size:11px;color:var(--muted);padding:4px 0">Metrik eklenmedi</span>
+    <span style="font-size:11px;color:var(--muted);padding:4px 0" data-i18n="noMetrics">Metrik eklenmedi</span>
   </div>
 
   <div style="display:flex;gap:8px;margin-bottom:12px">
@@ -383,7 +383,7 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
     <button id="btn-analiz-export" class="btn btn-ghost" style="flex:1;justify-content:center" disabled>⬇ Excel</button>
   </div>
 
-  <div class="loading" id="analiz-loading"><div class="spinner" style="border-top-color:#34d399"></div><span>Hesaplanıyor...</span></div>
+  <div class="loading" id="analiz-loading"><div class="spinner" style="border-top-color:#34d399"></div><span data-i18n="calculating">Hesaplanıyor...</span></div>
 
   <div id="analiz-result" style="display:none">
     <div class="section-label">
@@ -400,7 +400,7 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
 
   <div id="analiz-empty" style="display:none" class="empty-state">
     <div class="empty-icon">📈</div>
-    <div>Entity seç, group by ve metrik ekle, çalıştır</div>
+    <div data-i18n="entitySelectRun">Entity seç, group by ve metrik ekle, çalıştır</div>
   </div>
 </div>
 
@@ -409,7 +409,7 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
      AYARLAR
 ════════════════════════════════════════════════ -->
 <div class="panel" id="panel-settings">
-  <div class="section-label">Uygulama</div>
+  <div class="section-label" data-i18n="appLabel">Uygulama</div>
   <div class="card" style="margin-bottom:12px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div>
@@ -419,7 +419,7 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
       <div style="font-size:28px">🐙</div>
     </div>
     <div style="font-size:10px;color:var(--muted);line-height:1.6">
-      Danışman ve son kullanıcılar için ERP araç seti.<br>
+      <span data-i18n="appDesc">Danışman ve son kullanıcılar için ERP araç seti.</span><br>
       Excel rapor, ortam etiketi, analiz, sticky notlar.
     </div>
   </div>
@@ -438,7 +438,7 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
       </button>
     </div>
     <div id="settings-lang-info" style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center">
-      Aktif dil: <strong id="settings-active-lang">Türkçe</strong>
+      Aktif dil: <strong id="settings-active-lang" data-i18n="activeLang">Türkçe</strong>
     </div>
   </div>
 
