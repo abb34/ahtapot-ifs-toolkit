@@ -108,7 +108,7 @@ ahtapot/
 ├── xlsxwriter.js        # Pure-JS XLSX writer
 ├── content.css          # Content script styles
 └── icons/               # Extension icons
-```
+``` 
 
 ## 📄 License
 
