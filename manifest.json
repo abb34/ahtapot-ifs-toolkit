@@ -2,16 +2,14 @@
   "manifest_version": 3,
   "name": "Ahtapot — ERP Toolkit",
   "short_name": "Ahtapot",
-  "version": "1.0.0",
-  "description": "Consultant toolkit for ERP systems — Excel reports with custom templates, environment labels, cross-copy, sticky notes, and data analysis. Compatible with IFS Cloud Aurena.",
+  "version": "1.0.1",
+  "description": "ERP consultant toolkit — Excel reports, custom templates, environment labels, cross-copy, sticky notes and data analysis.",
   "homepage_url": "https://github.com/abb34/ahtapot-ifs-toolkit",
-  "minimum_chrome_version": "103",
+  "minimum_chrome_version": "111",
   "permissions": [
     "activeTab",
-    "scripting",
     "storage",
-    "tabs",
-    "downloads"
+    "tabs"
   ],
   "host_permissions": [
     "*://*/*"
@@ -59,7 +57,7 @@
   "web_accessible_resources": [],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Ahtapot — IFS Toolkit",
+    "default_title": "Ahtapot — ERP Toolkit",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

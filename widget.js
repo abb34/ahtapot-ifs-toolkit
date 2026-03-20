@@ -37,7 +37,7 @@
     // Trigger
     var btn = ce('button');
     btn.id = 'ahtapot-btn';
-    btn.title = 'Ahtapot — IFS Toolkit';
+    btn.title = 'Ahtapot — ERP Toolkit';
     btn.textContent = String.fromCodePoint(0x1F419); // 🐙
     css(btn, [
       'width:44px','height:44px','border-radius:50%',

@@ -1,4 +1,4 @@
-// IFS Cloud Toolkit — report-engine.js v3
+// Ahtapot ERP Toolkit — report-engine.js v3
 // Şablon tabanlı Excel rapor motoru
 
 const ReportEngine = (() => {
@@ -518,7 +518,7 @@ const ReportEngine = (() => {
     rows.push(['─── SİSTEM ───','','','Otomatik doldurulur']);
     rows.push(['Bugün','{{TODAY}}', new Date().toLocaleDateString('tr-TR'),'Rapor tarihi']);
     rows.push(['Şu An','{{NOW}}',   new Date().toLocaleString('tr-TR'),'Rapor zamanı']);
-    rows.push(['Ortam','{{ENV}}',   typeof window!=='undefined'?window.location.hostname:'','IFS ortamı']);
+    rows.push(['Ortam','{{ENV}}',   typeof window!=='undefined'?window.location.hostname:'','ERP ortamı']);
     rows.push(['','','','']);
 
     if (mainEnt && hFields.length) {

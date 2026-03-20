@@ -1,4 +1,4 @@
-// IFS Cloud Toolkit — background.js
+// Ahtapot ERP Toolkit — background.js
 // dataCache artık chrome.storage.local'da tutuluyor
 // Service worker restart'ta kaybolmuyor
 

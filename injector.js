@@ -1,4 +1,4 @@
-// IFS Cloud Toolkit — injector.js v4
+// Ahtapot ERP Toolkit — injector.js v4
 // MAIN world content script — fetch/XHR override
 
 (function () {

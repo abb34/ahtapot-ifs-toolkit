@@ -247,7 +247,7 @@
 })(window);
 
 // ═══ report-engine.js ═══
-// IFS Cloud Toolkit — report-engine.js v3
+// Ahtapot ERP Toolkit — report-engine.js v3
 // Şablon tabanlı Excel rapor motoru
 
 const ReportEngine = (() => {
@@ -767,7 +767,7 @@ const ReportEngine = (() => {
     rows.push(['─── SİSTEM ───','','','Otomatik doldurulur']);
     rows.push(['Bugün','{{TODAY}}', new Date().toLocaleDateString('tr-TR'),'Rapor tarihi']);
     rows.push(['Şu An','{{NOW}}',   new Date().toLocaleString('tr-TR'),'Rapor zamanı']);
-    rows.push(['Ortam','{{ENV}}',   typeof window!=='undefined'?window.location.hostname:'','IFS ortamı']);
+    rows.push(['Ortam','{{ENV}}',   typeof window!=='undefined'?window.location.hostname:'','ERP ortamı']);
     rows.push(['','','','']);
 
     if (mainEnt && hFields.length) {
@@ -856,7 +856,7 @@ function waitForExcelJS() {
   return Promise.resolve(); // xlsxwriter.js zaten popup.html'de yüklü
 }
 
-// IFS Cloud Toolkit — popup.js
+// Ahtapot ERP Toolkit — popup.js
 
 // ─── SİSTEM ENTİTY FİLTRESİ ──────────────────────────────
 const SYSTEM_ENTITY_PATTERNS = [
@@ -980,7 +980,7 @@ async function detectPage() {
         currentUrl.startsWith('chrome-extension://') ||
         currentUrl.startsWith('about:') ||
         currentUrl.startsWith('edge://')) {
-      if (ctxEl) ctxEl.textContent = 'IFS sayfası açın';
+      if (ctxEl) ctxEl.textContent = 'ERP sayfası açın';
       return;
     }
 
@@ -988,7 +988,7 @@ async function detectPage() {
       const urlObj = new URL(currentUrl);
       currentHostname = urlObj.hostname;
 
-      // IFS sayfası mı?
+      // ERP sayfası mı?
       const isIFS = currentUrl.includes('ifsapplications') ||
                     currentUrl.includes('ifsworld') ||
                     currentUrl.includes('ifs.cloud') ||
@@ -998,7 +998,7 @@ async function detectPage() {
       if (isIFS) {
         const parts = urlObj.pathname.split('/').filter(Boolean);
         const last = parts[parts.length - 1] || '';
-        context = 'IFS › ' + (last.slice(0, 28) || currentHostname);
+        context = 'ERP › ' + (last.slice(0, 28) || currentHostname);
       } else {
         context = currentHostname.slice(0, 35) || 'Bilinmeyen';
       }
@@ -1044,7 +1044,7 @@ function renderEntityList() {
   const container = document.getElementById('entity-list');
 
   if (!cacheData.length) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">📡</div>Henüz veri yok — IFS sayfasında bir kayıt açın</div>';
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">📡</div>Henüz veri yok — ERP sayfasında bir kayıt açın</div>';
     return;
   }
 
@@ -1243,7 +1243,7 @@ async function renderTemplateList(templates) {
 // Örnek şablon indir
 document.getElementById('btn-download-sample').addEventListener('click', async () => {
   if (!cacheData.length) {
-    showToast('Önce IFS sayfasında bir kayıt açın', 'error');
+    showToast('Önce ERP sayfasında bir kayıt açın', 'error');
     return;
   }
 
@@ -1729,7 +1729,7 @@ const LANGS = {
   tr: {
     report: '📊 Rapor', env: '🏷️ Ortam', cross: '🔄 Çapraz',
     sticky: '📌 Notlar', analiz: '📈 Analiz', settings: '⚙️ Ayarlar',
-    noData: 'Henüz veri yok — IFS sayfasında bir kayıt açın',
+    noData: 'Henüz veri yok — ERP sayfasında bir kayıt açın',
     headerEntity: 'Header Verisi (ana kayıt)',
     refresh: '🔄 Yenile', clear: '🗑 Temizle',
     uploadTemplate: '📤 Şablon Yükle', downloadSample: '⬇️ Örnek İndir',
@@ -1741,7 +1741,7 @@ const LANGS = {
   en: {
     report: '📊 Report', env: '🏷️ Environment', cross: '🔄 Cross',
     sticky: '📌 Notes', analiz: '📈 Analysis', settings: '⚙️ Settings',
-    noData: 'No data yet — open a record on an IFS page',
+    noData: 'No data yet — open a record on an ERP page',
     headerEntity: 'Header Data (main record)',
     refresh: '🔄 Refresh', clear: '🗑 Clear',
     uploadTemplate: '📤 Upload Template', downloadSample: '⬇️ Download Sample',
@@ -1753,7 +1753,7 @@ const LANGS = {
   it: {
     report: '📊 Report', env: '🏷️ Ambiente', cross: '🔄 Copia',
     sticky: '📌 Note', analiz: '📈 Analisi', settings: '⚙️ Impostazioni',
-    noData: 'Nessun dato — apri un record nella pagina IFS',
+    noData: 'Nessun dato — apri un record nella pagina ERP',
     headerEntity: 'Dati Header (record principale)',
     refresh: '🔄 Aggiorna', clear: '🗑 Pulisci',
     uploadTemplate: '📤 Carica Template', downloadSample: '⬇️ Scarica Esempio',
@@ -1897,7 +1897,7 @@ function buildHtmlReport(headerRecord, lineRecords, templateName) {
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<title>${templateName || 'IFS Rapor'}</title>
+<title>${templateName || 'ERP Rapor'}</title>
 <style>
   @page { size: A4 landscape; margin: 12mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1944,7 +1944,7 @@ function buildHtmlReport(headerRecord, lineRecords, templateName) {
 
 <div class="header">
   <div>
-    <div class="h1" style="font-size:16px;font-weight:700">${templateName || 'IFS Rapor'}</div>
+    <div class="h1" style="font-size:16px;font-weight:700">${templateName || 'ERP Rapor'}</div>
     <div class="meta">Oluşturulma: ${today} ${now}</div>
   </div>
   <div class="logo">🐙</div>
@@ -1963,7 +1963,7 @@ function buildHtmlReport(headerRecord, lineRecords, templateName) {
 ${linesHtml}
 
 <div class="footer">
-  <span>🐙 Ahtapot — IFS Toolkit</span>
+  <span>🐙 Ahtapot — ERP Toolkit</span>
   <span>${today} ${now}</span>
 </div>
 

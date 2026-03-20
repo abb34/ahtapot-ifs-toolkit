@@ -1,4 +1,4 @@
-// IFS Cloud Toolkit — content.js
+// Ahtapot ERP Toolkit — content.js
 // İki görevi var:
 // 1. injector.js'i page context'e inject et (fetch/XHR yakalamak için)
 // 2. Background ile haberleş, sayfa üzerine UI elementleri ekle
@@ -129,7 +129,7 @@
       cursor: pointer;
     `;
     banner.textContent = `${envConfig.icon || '⚠️'} ${envConfig.label} ORTAMI ${envConfig.icon || '⚠️'}`;
-    banner.title = 'IFS Toolkit ortam etiketi — ayarlardan değiştir';
+    banner.title = 'Ahtapot ortam etiketi — ayarlardan değiştir';
 
     // Banner'a tıklanınca küçült/büyüt
     banner.addEventListener('click', () => {
@@ -621,7 +621,7 @@
     const widget = document.createElement('div');
     widget.id = 'ahtapot-widget';
     widget.innerHTML = `
-      <button id="ahtapot-fab" title="Ahtapot IFS Toolkit">
+      <button id="ahtapot-fab" title="Ahtapot ERP Toolkit">
         <svg viewBox="0 0 36 36" width="28" height="28" xmlns="http://www.w3.org/2000/svg">
           <!-- Kollar -->
           <g fill="#c084fc" opacity="0.9">
