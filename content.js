@@ -545,17 +545,44 @@
     return window.location.origin + '/main/ifsapplications/projection/v1/';
   }
 
-  // F-16: bir element'in display name'ini çıkar (sayfada görünür Türkçe başlık).
-  // IFS Aurena tipik attribute'lar: header, title, aria-label, label.
-  // Bulamazsa null döner; çağrı yerinde fallback olarak entity adı kullanılır.
+  // F-16 Faz 1.11: bir element'in display name'ini çıkar (sayfada görünür Türkçe başlık).
+  // IFS Aurena tab yapısı:
+  //   <div role="tab" aria-selected="true">Malzeme Talep Satırları</div>
+  //   <div role="tabpanel" aria-label="Malzeme Talep Satırları">
+  //     <fnd-list-card entity-set="PartRequisitionLines">...</fnd-list-card>
+  //   </div>
+  // Strateji: en yakın [role="tabpanel"] panel'inden tab label'ı al, yoksa
+  // aktif tab'a fallback, yoksa eski attribute araması.
   function extractDisplayName(el) {
     if (!el) return null;
+
+    // 1. En yakın tabpanel — bunun aria-label veya aria-labelledby ile bağlı tab text'i
+    const panel = el.closest('[role="tabpanel"]');
+    if (panel) {
+      const ariaLabel = panel.getAttribute('aria-label');
+      if (ariaLabel && ariaLabel.trim()) return ariaLabel.trim();
+      const labelledBy = panel.getAttribute('aria-labelledby');
+      if (labelledBy) {
+        const tabEl = document.getElementById(labelledBy);
+        const text = tabEl?.textContent?.trim();
+        if (text) return text;
+      }
+    }
+
+    // 2. Aurena: aria-controls karşılığında label text (panel henüz render değilse aktif tab)
+    const activeTab = document.querySelector('[role="tab"][aria-selected="true"]');
+    if (activeTab && activeTab.contains(el) === false) {
+      // Element aktif tab içinde değil ama panel'de olabilir; aktif tab'ın text'i
+      const text = activeTab.textContent?.trim();
+      if (text) return text;
+    }
+
+    // 3. Element ve yakın atalarda attribute araması (eski mantık — fnd-tab vb. için)
     const tryAttrs = ['header', 'header-title', 'title', 'aria-label', 'label', 'data-label'];
     for (const a of tryAttrs) {
       const v = el.getAttribute(a);
       if (v && v.trim() && !/^[a-z][a-zA-Z]+$/.test(v.trim())) return v.trim();
     }
-    // Yakın container'larda ara — fnd-tab title, fnd-card-header, vb.
     const parents = ['fnd-tab', 'fnd-card', 'fnd-page', 'fnd-list-card', '[title]'];
     for (const p of parents) {
       const parent = el.closest(p);
@@ -567,6 +594,17 @@
       }
     }
     return null;
+  }
+
+  // F-16 Faz 1.11: sayfadaki tüm tab title'larını bir kerede topla.
+  // İlerideki entity yakalamalarında tab ↔ entity eşleştirmesini güçlendirir.
+  function collectTabLabels() {
+    const labels = [];
+    document.querySelectorAll('[role="tab"]').forEach(tab => {
+      const text = tab.textContent?.trim();
+      if (text) labels.push({ text, ariaControls: tab.getAttribute('aria-controls') });
+    });
+    return labels;
   }
 
   // F-16: DOM'da bulduğumuz entity'leri background'a göndererek popup
