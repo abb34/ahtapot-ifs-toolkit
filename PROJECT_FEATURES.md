@@ -115,6 +115,16 @@ main  ──── şimdilik dondurulmuştur; ileride prod'a hizalanır veya sil
 - **F-11: `popup.html` Google Fonts CSS yükler.** README'deki "hiçbir veri dışarıya gönderilmez" iddiasıyla çelişir. CWS döngüsünde lokal font veya system stack'e geçilir.
 - **F-12: Widget "Hızlı Rapor" akışı çalışmıyor** (pre-existing — bundle döneminde de bozuktu, F-01 ile keşfedildi). `widget.js:428` MAIN world'de `window.IFSReportEngine` ve `window.XLSXWriter` arar; bunlar yalnızca `popup.html` üzerinden yüklenir, MAIN world'e hiç gelmez. Sonuç: widget'tan "▶ Çalıştır" her zaman "Rapor motoru hazır değil" feedback'i gösterir. En temiz çözüm `chrome.downloads` izni + content.js (ISOLATED world) üzerinden işleme — yeni manifest izni gerektirdiği için F-10/F-11 ile birlikte CWS uyumluluk döngüsünde ele alınacak. **Bu döngüde widget quick-report kullanılmaz; popup'tan Excel İndir alternatifi vardır.**
 
+### Bu döngüde yeni eklenen (UX / özellik)
+
+- **F-16: Şablon-bazlı entity mapping + Excel İndir'de auto-fetch** (kullanıcı talebi)
+  Şablonda birden çok blok (`{{#LINES}}`, `{{#APPROVALS}}` vb.) olduğunda her bloğun karşılığı entity'nin IFS'te o sayfada açıldığı tab/widget yakalanmadıkça cache'e düşmüyor. Kullanıcı şu an her bloka manuel entity eşleştirir; eksik entity için sayfada ilgili tab'a tıklamak zorunda. Yeni davranış:
+  - **Faz 1:** Şablon yüklendiğinde `analyzeTemplate` blok adlarını çıkarır → kullanıcıya her blok için entity adı sorulur (dropdown: yakalanmışlar + "elle yaz" seçeneği). Eşleştirme şablonun `analysis.blocks[i].entity`'sine kaydedilir.
+  - **Faz 2:** "Excel İndir" basıldığında her blok için cache kontrolü; eksikse background'a `FETCH_ENTITY_FOR_BLOCK` mesajı (header URL'inden service base + key çıkarılır, `${svcBase}${targetEntity}?$filter=${keyField} eq ${keyValue}` ile fetch). Cache'e yazılır, rapor üretilir.
+  Sonuç: kullanıcı tek bir kayıt açar, popup'ta şablonu seçer, Excel İndir basar — gerekli tüm entity'ler arka planda fetch edilir.
+
+- **F-15 (yeniden):** İlk uygulama `content.js`'ten `URL_CHANGED` postMessage atıyordu; bu IFS Aurena `window.fetch` override timing'ini bozdu (capture log gelmemesine yol açtı, `5594e93` revert edildi). Yeni strateji: **`chrome.webNavigation.onHistoryStateUpdated`** background API'siyle SPA pushState'i yakala, cache stale işaretle. `content.js`'e hiç dokunma. Yeni manifest permission: `"webNavigation"`. CWS gerekçesi: SPA cache invalidation.
+
 ## 6. Yapılmayacaklar (Bu Döngünün Dışı)
 
 Aşağıdakiler bu döngünün **kapsamı dışındadır**, `TODO.md`'ye girmezler. İhtiyaç doğarsa yeni döngüde ele alınır:

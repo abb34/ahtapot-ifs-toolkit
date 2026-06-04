@@ -266,6 +266,10 @@ function populateEntitySelects() {
   // Blok mapping select'lerini güncelle
   document.querySelectorAll('.block-entity-select').forEach(sel => {
     const curr = sel.value;
+    // Manuel mode'da yazılı entity adını koru
+    const row = sel.closest('.block-mapping-row');
+    const manualInput = row?.querySelector('.block-entity-manual');
+    const manualValue = manualInput?.value || '';
     sel.innerHTML = '<option value="">-- Yok --</option>';
     const biz = cacheData.filter(e => !isSystemEntity(e.entity, e.service));
     const sys = cacheData.filter(e => isSystemEntity(e.entity, e.service));
@@ -286,7 +290,18 @@ function populateEntitySelects() {
         sel.appendChild(opt);
       });
     }
-    if (curr) sel.value = curr;
+    // "Diğer (elle yaz)..." seçeneği — F-16: yakalanmamış entity adı verilebilir
+    const otherOpt = document.createElement('option');
+    otherOpt.value = '__manual__';
+    otherOpt.textContent = '✏️ Diğer (elle yaz)...';
+    sel.appendChild(otherOpt);
+    // Önceki seçimi koru; manuel mode'daysa manuel mode'da kalsın
+    if (curr === '__manual__' || (manualValue && !biz.find(e => e.entity === manualValue) && !sys.find(e => e.entity === manualValue))) {
+      sel.value = '__manual__';
+      if (manualInput) manualInput.style.display = '';
+    } else if (curr) {
+      sel.value = curr;
+    }
   });
 }
 
@@ -320,12 +335,13 @@ document.getElementById('template-file-input').addEventListener('change', async 
     selectedTemplateIndex = templates.length - 1;
 
     renderTemplateList(templates);
+    rebuildBlockMappingsFromTemplate(selectedTemplate);
     addLog(`Şablon yüklendi: ${file.name}`, 'ok');
     addLog(`Header: ${analysis.headerPlaceholders.join(', ')}`, 'info');
     analysis.blocks.forEach(b => {
-      addLog(`Blok [${b.name}]: ${b.placeholders.join(', ')}`, 'info');
+      addLog(`Blok [${b.name}]: ${b.placeholders.join(', ')} — entity için aşağıdaki "Veri Eşleştirme" bölümünden seç`, 'info');
     });
-    showToast('📤 Şablon yüklendi!');
+    showToast('📤 Şablon yüklendi! Her blok için entity seç.');
   } catch (err) {
     addLog('Şablon yükleme hatası: ' + err.message, 'err');
     showToast('Hata: ' + err.message, 'error');
@@ -374,6 +390,7 @@ async function renderTemplateList(templates) {
         selectedTemplate = templates[idx];
         selectedTemplateIndex = idx;
         renderTemplateList(templates);
+        rebuildBlockMappingsFromTemplate(selectedTemplate);
         addLog(`Şablon seçildi: ${selectedTemplate.name}`, 'info');
         showToast(`✅ ${selectedTemplate.name} seçildi`);
       } else if (btn.dataset.action === 'delete') {
@@ -1116,7 +1133,7 @@ function addBlockRow(blockName = '', entityValue = '') {
   const container = document.getElementById('block-mappings');
   const row = document.createElement('div');
   row.className = 'block-mapping-row';
-  row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px';
+  row.style.cssText = 'display:flex;gap:6px;align-items:flex-start;margin-bottom:6px';
   row.dataset.block = blockName || 'BLOCK' + (container.children.length + 1);
 
   row.innerHTML = '<div style="flex:1">'
@@ -1129,21 +1146,53 @@ function addBlockRow(blockName = '', entityValue = '') {
     + '<select class="block-entity-select" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;font-size:11px">'
     + '<option value="">-- Yok --</option>'
     + '</select>'
+    + '<input type="text" class="block-entity-manual" placeholder="Entity adı (örn. PartRequisitionLines)" '
+    + 'style="display:none;width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;font-size:11px;font-family:monospace;margin-top:4px">'
     + '</div>'
     + '<button class="btn-remove-block" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 2px;margin-top:14px" title="Kaldır">×</button>';
 
-  row.querySelector('.btn-remove-block').addEventListener('click', () => row.remove());
   container.appendChild(row);
 
-  // Select'i doldur
   const sel = row.querySelector('.block-entity-select');
+  const manualInput = row.querySelector('.block-entity-manual');
+  const nameInput = row.querySelector('.block-name-input');
+
+  // Yakalanmış entity'leri doldur
+  let entityInList = false;
   cacheData.forEach(e => {
     const opt = document.createElement('option');
     opt.value = e.entity;
     opt.textContent = e.entity + ' (' + e.recordCount + ')';
-    if (e.entity === entityValue) opt.selected = true;
+    if (e.entity === entityValue) { opt.selected = true; entityInList = true; }
     sel.appendChild(opt);
   });
+
+  // "Diğer (elle yaz)..." seçeneği — auto-fetch için, henüz yakalanmamış entity adı verilebilir
+  const otherOpt = document.createElement('option');
+  otherOpt.value = '__manual__';
+  otherOpt.textContent = '✏️ Diğer (elle yaz)...';
+  sel.appendChild(otherOpt);
+
+  // entityValue cache'de yoksa manuel mode'a geç
+  if (entityValue && !entityInList) {
+    sel.value = '__manual__';
+    manualInput.style.display = '';
+    manualInput.value = entityValue;
+  }
+
+  sel.addEventListener('change', () => {
+    if (sel.value === '__manual__') {
+      manualInput.style.display = '';
+      manualInput.focus();
+    } else {
+      manualInput.style.display = 'none';
+      manualInput.value = '';
+    }
+    saveBlockMappingToTemplate();
+  });
+  manualInput.addEventListener('input', saveBlockMappingToTemplate);
+  nameInput.addEventListener('input', saveBlockMappingToTemplate);
+  row.querySelector('.btn-remove-block').addEventListener('click', () => { row.remove(); saveBlockMappingToTemplate(); });
 
   return row;
 }
@@ -1152,10 +1201,47 @@ function getBlockMappings() {
   const mappings = [];
   document.querySelectorAll('.block-mapping-row').forEach(row => {
     const name = row.querySelector('.block-name-input')?.value?.trim();
-    const entity = row.querySelector('.block-entity-select')?.value;
+    let entity = row.querySelector('.block-entity-select')?.value;
+    if (entity === '__manual__') {
+      entity = row.querySelector('.block-entity-manual')?.value?.trim() || '';
+    }
     if (name) mappings.push({ name, entity: entity || '' });
   });
   return mappings;
+}
+
+// F-16 Faz 1: Blok-mapping satırlarındaki entity seçimini şablon storage'ına yazar.
+// Şablon seçili değilse no-op. Değişiklikler debounce'suz; popup açıkken küçük frekansta tetiklenir.
+async function saveBlockMappingToTemplate() {
+  if (!selectedTemplate || selectedTemplateIndex == null) return;
+  if (!selectedTemplate.analysis) selectedTemplate.analysis = { headerPlaceholders: [], blocks: [] };
+  const mappings = getBlockMappings();
+  // Mevcut bloklar üzerinden git, placeholders'ları koru, entity'yi güncelle
+  selectedTemplate.analysis.blocks = mappings.map(m => {
+    const existing = (selectedTemplate.analysis.blocks || []).find(b => b.name === m.name);
+    return { name: m.name, placeholders: existing?.placeholders || [], entity: m.entity || '' };
+  });
+  try {
+    const { templates = [] } = await chrome.storage.local.get(['templates']);
+    if (templates[selectedTemplateIndex]) {
+      templates[selectedTemplateIndex].analysis = selectedTemplate.analysis;
+      await chrome.storage.local.set({ templates });
+    }
+  } catch (e) {}
+}
+
+// F-16 Faz 1: Şablonun analiz sonucundan blok-mapping satırlarını yeniden inşa et.
+// Şablon seçilince veya yeni yüklenince çağrılır. Mevcut blokları siler, şablondaki blokları ekler.
+function rebuildBlockMappingsFromTemplate(template) {
+  const container = document.getElementById('block-mappings');
+  if (!container) return;
+  if (!template || !template.analysis || !template.analysis.blocks || !template.analysis.blocks.length) {
+    return; // Eski şablon ya da blok yok — varsayılan satıra dokunma
+  }
+  container.innerHTML = '';
+  template.analysis.blocks.forEach(block => {
+    addBlockRow(block.name || 'LINES', block.entity || '');
+  });
 }
 
 
