@@ -582,8 +582,32 @@ async function generateReport(outputType) {
     const headerRecord = headerResp.records[0] || {};
     addLog(`Header: ${Object.keys(headerRecord).length} alan`, 'info');
 
-    // Çoklu blok verilerini çek
+    // F-16 Faz 2: Eksik blok entity'leri için auto-fetch.
+    // Kullanıcı tab'a tıklamak zorunda kalmasın — discovered listesinde olan
+    // ama cache'te olmayan entity'ler için background'a fetch isteği at.
     const blockMappings = getBlockMappings();
+    const missingEntities = blockMappings.filter(m =>
+      m.entity && !cacheData.find(c => c.entity === m.entity && !c.stale)
+    );
+    if (missingEntities.length) {
+      addLog(`Auto-fetch: ${missingEntities.length} eksik entity (${missingEntities.map(m => m.entity).join(', ')})`, 'info');
+      for (const m of missingEntities) {
+        const fr = await sendMsg({
+          type: 'FETCH_ENTITY_FOR_BLOCK',
+          headerEntity: headerEntityName,
+          targetEntity: m.entity
+        });
+        if (fr?.ok) {
+          addLog(`✓ ${m.entity}: ${fr.recordCount} kayıt (${fr.kind || (fr.cached ? 'cache' : '')})`, 'ok');
+        } else {
+          addLog(`✗ ${m.entity}: ${fr?.error || 'fetch hatası'}`, 'err');
+        }
+      }
+      // Cache'i tazele (yeni fetch'ler GET_ENTITY_DATA üzerinden alınacak)
+      await refreshCache();
+    }
+
+    // Çoklu blok verilerini çek
     const blockData = {}; // { LINES: [...], APPROVALS: [...] }
     for (const mapping of blockMappings) {
       if (!mapping.entity) continue;

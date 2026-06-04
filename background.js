@@ -160,6 +160,25 @@ async function setCache(cache) {
   await chrome.storage.local.set({ dataCache: cache });
 }
 
+// F-16 Faz 2: OData key string'ini { fieldName: rawValue } map'ine çevir.
+// "RequisitionNo='5'" → { RequisitionNo: "'5'" }
+// "OrderNo='1',LineNo='2'" → { OrderNo: "'1'", LineNo: "'2'" }
+// Değer tırnaklarıyla birlikte korunur — direkt URL'e gömülebilir.
+function parseODataKey(keyStr) {
+  const result = {};
+  if (!keyStr) return result;
+  // Virgülle böl ama tırnak içindeki virgülleri böleme (basit, tırnak içinde virgül nadir)
+  keyStr.split(/,(?=(?:[^']*'[^']*')*[^']*$)/).forEach(pair => {
+    const eqIdx = pair.indexOf('=');
+    if (eqIdx > 0) {
+      const field = pair.slice(0, eqIdx).trim();
+      const value = pair.slice(eqIdx + 1).trim();
+      if (field) result[field] = value;
+    }
+  });
+  return result;
+}
+
 // F-16 Faz 1.8/1.9: OData $metadata endpoint'inden service'in EntitySet'lerini ve
 // EntityType'ların NavigationProperty'lerini parse et. Sadece NavigationProperty
 // (Type="Collection(...)") olanlar gerçek child tablolardır (page'deki tab içerikleri).
@@ -248,11 +267,15 @@ async function fetchServiceMetadata(tabId, svcBase) {
       if (!retMatch) continue;
       const returnType = retMatch[1];
       if (isLookupName(fnName) || isLookupType(returnType)) continue;
-      // F-16 Faz 1.10b: dropdown'da function adı (PurchaseRequisitionLines) değil,
-      // gerçek entity = return type'ın karşılığı EntitySet (PurchReqLineApproval) görünür.
-      // Function adı arka planda saklanır (auto-fetch'te URL inşası için).
       const returnEntitySet = typeToEntitySet[returnType] || returnType.split('.').pop();
-      functions.push({ name: fnName, returnType, returnEntitySet });
+      // F-16 Faz 2: parametre listesini parse et — Function call URL inşası için lazım.
+      const params = [];
+      const paramRe = /<Parameter\s+Name="([^"]+)"\s+Type="([^"]+)"/g;
+      let p;
+      while ((p = paramRe.exec(body)) !== null) {
+        params.push({ name: p[1], type: p[2] });
+      }
+      functions.push({ name: fnName, returnType, returnEntitySet, params });
     }
 
     console.log('[Ahtapot BG] $metadata:', svcBase.match(/\/([^/]+)\.svc\//)?.[1],
@@ -671,6 +694,143 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
     })();
     return;
+  }
+
+  // ── F-16 Faz 2: Excel İndir öncesi eksik blok entity'sini auto-fetch ──
+  // popup.js generateReport öncesinde her blok için kontrol eder; cache'te
+  // yoksa veya stale ise buraya gönderir. Burada header URL'inden service
+  // base + key çıkar, target entity'nin tipine göre 3 URL formatından birini
+  // inşa eder (nav-prop / function / EntitySet fallback), fetch eder, cache'e
+  // yazar. sendResponse async olduğu için return true.
+  if (msg.type === 'FETCH_ENTITY_FOR_BLOCK') {
+    const { headerEntity, targetEntity } = msg;
+    const tabId = sender.tab?.id;
+
+    (async () => {
+      try {
+        const cache = await getCache();
+        // popup'un tab'ı kendi tabId'si değil — findTabWithData ile veri tabını bul
+        const found = tabId && cache[tabId] && cache[tabId][headerEntity]
+          ? tabId
+          : Object.keys(cache).find(id => cache[id] && cache[id][headerEntity]);
+        const realTabId = found ? parseInt(found) : null;
+        const tabCache = realTabId ? cache[realTabId] : null;
+        const headerData = tabCache?.[headerEntity];
+        if (!headerData?.url) {
+          sendResponse({ ok: false, error: 'Header URL cache\'te yok: ' + headerEntity });
+          return;
+        }
+
+        const svcMatch = headerData.url.match(/(https?:\/\/[^/]+\/[^?]+\.svc\/)/);
+        if (!svcMatch) { sendResponse({ ok: false, error: 'svcBase parse edilemedi' }); return; }
+        const svcBase = svcMatch[1];
+        const headerKey = headerData.key || '';   // "RequisitionNo='5'"
+        const keyPairs = parseODataKey(headerKey);
+
+        // Service metadata
+        const svcMeta = tabCache.__serviceMeta?.[svcBase];
+        const discovered = tabCache.__discovered?.[targetEntity];
+
+        // Cache'te entity zaten var ve fresh ise atla
+        if (tabCache[targetEntity] && !tabCache[targetEntity].stale) {
+          sendResponse({ ok: true, recordCount: tabCache[targetEntity].records.length, cached: true });
+          return;
+        }
+
+        let url = null;
+        let kind = null;
+
+        // 1. Nav-prop (header entity'nin Collection nav-property'si)
+        if (svcMeta) {
+          const headerTypeFqn = svcMeta.entitySetToType?.[headerEntity];
+          const navs = svcMeta.typeNavProps?.[headerTypeFqn] || [];
+          const navMatch = navs.find(n =>
+            n.isCollection && (
+              n.name === targetEntity ||
+              svcMeta.typeToEntitySet?.[n.targetType] === targetEntity
+            )
+          );
+          if (navMatch && headerKey) {
+            url = `${svcBase}${headerEntity}(${headerKey})/${navMatch.name}?$top=200`;
+            kind = 'nav-prop:' + navMatch.name;
+          }
+        }
+
+        // 2. Function (discovered.source='function' veya metadata'da function adı target ile eşleşir)
+        if (!url && svcMeta?.functions) {
+          // Önce discovered'tan functionName
+          let fnMeta = null;
+          if (discovered?.functionName) {
+            fnMeta = svcMeta.functions.find(f => f.name === discovered.functionName);
+          }
+          // Yoksa targetEntity ile eşleşen function'ı ara (returnEntitySet match)
+          if (!fnMeta) {
+            fnMeta = svcMeta.functions.find(f => f.returnEntitySet === targetEntity);
+          }
+          if (fnMeta) {
+            const callParams = (fnMeta.params || []).map(p => {
+              if (keyPairs[p.name] !== undefined) return `${p.name}=${keyPairs[p.name]}`;
+              if (p.type === 'Edm.Boolean') return `${p.name}=false`;
+              if (/Int|Decimal|Double|Single/.test(p.type)) return `${p.name}=0`;
+              // String veya Enum: boş string
+              return `${p.name}=''`;
+            });
+            url = `${svcBase}${fnMeta.name}(${callParams.join(',')})?$top=200`;
+            kind = 'function:' + fnMeta.name;
+          }
+        }
+
+        // 3. EntitySet fallback: ?$filter=keyField eq keyValue
+        if (!url) {
+          if (Object.keys(keyPairs).length === 0) {
+            url = `${svcBase}${targetEntity}?$top=200`;
+            kind = 'entityset:no-filter';
+          } else {
+            const filters = Object.entries(keyPairs).map(([f, v]) => `${f} eq ${v}`).join(' and ');
+            url = `${svcBase}${targetEntity}?$filter=${encodeURIComponent(filters)}&$top=200`;
+            kind = 'entityset:filter';
+          }
+        }
+
+        console.log('[Ahtapot BG] FETCH_ENTITY_FOR_BLOCK', kind, '→', url);
+
+        const resp = await fetch(url, {
+          credentials: 'include',
+          headers: { 'Accept': 'application/json' }
+        });
+        if (!resp.ok) {
+          sendResponse({ ok: false, error: 'HTTP ' + resp.status + ' (' + kind + ')' });
+          return;
+        }
+        const data = await resp.json();
+        const records = data.value || (data['@odata.context'] ? [data] : []);
+
+        // Cache'e yaz
+        const cache2 = await getCache();
+        if (!cache2[realTabId]) cache2[realTabId] = {};
+        cache2[realTabId][targetEntity] = {
+          records,
+          service: svcBase.match(/\/([^/]+)\.svc\//)?.[1] || 'Unknown',
+          url,
+          key: null,
+          capturedAt: Date.now(),
+          stale: false
+        };
+        await setCache(cache2);
+
+        chrome.runtime.sendMessage({
+          type: 'CACHE_UPDATED',
+          tabId: realTabId,
+          entity: targetEntity,
+          recordCount: records.length
+        }).catch(() => {});
+
+        sendResponse({ ok: true, recordCount: records.length, kind });
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true;  // async sendResponse
   }
 
   // ── Cross-env fetch ──
