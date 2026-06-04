@@ -109,6 +109,7 @@ main  ──── şimdilik dondurulmuştur; ileride prod'a hizalanır veya sil
 
 - **F-10: `host_permissions: "*://*/*"`** Chrome Web Store için kırmızı bayrak. CWS yayın döngüsünde daraltılır.
 - **F-11: `popup.html` Google Fonts CSS yükler.** README'deki "hiçbir veri dışarıya gönderilmez" iddiasıyla çelişir. CWS döngüsünde lokal font veya system stack'e geçilir.
+- **F-12: Widget "Hızlı Rapor" akışı çalışmıyor** (pre-existing — bundle döneminde de bozuktu, F-01 ile keşfedildi). `widget.js:428` MAIN world'de `window.IFSReportEngine` ve `window.XLSXWriter` arar; bunlar yalnızca `popup.html` üzerinden yüklenir, MAIN world'e hiç gelmez. Sonuç: widget'tan "▶ Çalıştır" her zaman "Rapor motoru hazır değil" feedback'i gösterir. En temiz çözüm `chrome.downloads` izni + content.js (ISOLATED world) üzerinden işleme — yeni manifest izni gerektirdiği için F-10/F-11 ile birlikte CWS uyumluluk döngüsünde ele alınacak. **Bu döngüde widget quick-report kullanılmaz; popup'tan Excel İndir alternatifi vardır.**
 
 ## 6. Yapılmayacaklar (Bu Döngünün Dışı)
 
