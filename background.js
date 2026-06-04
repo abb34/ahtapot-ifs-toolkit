@@ -235,7 +235,9 @@ async function fetchServiceMetadata(tabId, svcBase) {
     const functions = [];
     const isLookupName = (name) =>
       /^(Get|Is|Allow|Validate|Check|Find|Lookup|Has|Fetch|Verify)\w/.test(name) ||
-      /Lov$|Lookup$/.test(name);
+      /Lov/i.test(name) ||      // herhangi bir yerde Lov (LovList, LuSpecificLov, vb.)
+      /Lookup/i.test(name) ||
+      /Search/i.test(name);
     const isLookupType = (t) => /Lov\b|Lookup\b|\bReference_/.test(t || '');
 
     const fnRe = /<Function\s+Name="([^"]+)"[^>]*>([\s\S]*?)<\/Function>/g;
