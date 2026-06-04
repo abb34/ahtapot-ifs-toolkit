@@ -539,15 +539,21 @@ document.getElementById('sample-download').addEventListener('click', async () =>
     }
 
     // Tüm seçilenler için cache'ten field/sample data çek (varsa)
+    // F-16 Faz 2c: cache yoksa metadata'dan Property listesini kullan — etiket
+    // {{Field}} için her zaman bir field listesi olsun (kullanıcı şablon
+    // oluştururken etiketleri kopyalayabilsin).
     async function buildSummary(entity, blockName) {
       const resp = await sendMsg({ type: 'GET_ENTITY_DATA', entity });
       const records = resp?.ok ? (resp.records || []) : [];
       const cached = cacheData.find(c => c.entity === entity);
       const discovered = (discoveredEntities || []).find(d => d.entity === entity);
+      const fields = records.length ? Object.keys(records[0])
+        : (cached?.fields?.length ? cached.fields
+        : (discovered?.fields || []));
       return {
         entity,
         service: cached?.service || 'Unknown',
-        fields: records.length ? Object.keys(records[0]) : (cached?.fields || []),
+        fields,
         sampleRecord: records[0] || null,
         records,
         displayName: cached?.displayName || discovered?.displayName || null,

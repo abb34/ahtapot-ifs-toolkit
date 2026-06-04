@@ -228,7 +228,8 @@ async function fetchServiceMetadata(tabId, svcBase) {
     //   <NavigationProperty Name="PartRequisitionLines" Type="Collection(IFS.PurchaseReqLinePart)"/>
     //   <NavigationProperty Name="RequisitionerCodeRef" Type="IFS.Reference_Requisitioner"/>
     // </EntityType>
-    const typeNavProps = {};  // EntityType FQN → [{ name, targetType, isCollection }]
+    const typeNavProps = {};   // EntityType FQN → [{ name, targetType, isCollection }]
+    const typeProperties = {}; // F-16 Faz 2c: EntityType FQN → [property names]
     const typeRe = /<EntityType\s+Name="([^"]+)"[^>]*>([\s\S]*?)<\/EntityType>/g;
     while ((m = typeRe.exec(xml)) !== null) {
       const typeName = m[1];
@@ -245,6 +246,13 @@ async function fetchServiceMetadata(tabId, svcBase) {
         navs.push({ name: navName, targetType, isCollection });
       }
       if (navs.length) typeNavProps[fqn] = navs;
+      // F-16 Faz 2c: Property listesi (regular field'lar). Örnek şablon üretiminde
+      // entity henüz cache'te yoksa veya auto-fetch başarısızsa fallback olarak kullan.
+      const props = [];
+      const propRe = /<Property\s+Name="([^"]+)"/g;
+      let pp;
+      while ((pp = propRe.exec(body)) !== null) props.push(pp[1]);
+      if (props.length) typeProperties[fqn] = props;
     }
 
     // ── 3. Collection döner Function'lar (V4 OData) ──
@@ -291,6 +299,7 @@ async function fetchServiceMetadata(tabId, svcBase) {
       entitySetToType,
       typeToEntitySet,
       typeNavProps,
+      typeProperties,
       functions
     };
     await setCache(cache);
@@ -529,7 +538,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       });
 
       // Her cache'lenmiş entity için: o EntityType'ın Collection nav-prop'larına
-      // karşılık gelen EntitySet'leri discovered'a ekle
+      // karşılık gelen EntitySet'leri discovered'a ekle. F-16 Faz 2c: target
+      // EntityType'ın Property listesini fields olarak ekle (sample template
+      // üretiminde auto-fetch başarısızsa fallback için).
       summary.forEach(s => {
         const svcMeta = Object.values(serviceMeta).find(meta =>
           meta && meta.entitySetToType && meta.entitySetToType[s.entity]
@@ -546,7 +557,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               luName: null,
               source: 'nav-prop',
               parentEntity: s.entity,
-              navName: n.name
+              navName: n.name,
+              fields: svcMeta.typeProperties?.[n.targetType] || []
             };
           }
         });
@@ -566,18 +578,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       cachedSvcBases.forEach(svcBase => {
         const meta = serviceMeta[svcBase];
         (meta?.functions || []).forEach(fn => {
-          // F-16 Faz 1.10b: dropdown'da gerçek entity (return type'tan) görünür.
-          // Function adı arka planda functionName olarak saklanır (Faz 2'de
-          // auto-fetch URL inşası için lazım: svcBase + fnName(params)).
           const key = fn.returnEntitySet || fn.name;
           if (!tabCache[key] && !combined[key]) {
+            // F-16 Faz 2c: Function return type'ından Property listesi.
+            const returnTypeFqn = fn.returnType;
+            const fields = meta?.typeProperties?.[returnTypeFqn] || [];
             combined[key] = {
               entity: key,
               displayName: metaDisplayName[key] || null,
               luName: null,
               source: 'function',
               functionName: fn.name,
-              returnType: fn.returnType
+              returnType: fn.returnType,
+              fields
             };
           }
         });
