@@ -7,6 +7,7 @@
 ## P0 — Kritik
 
 - [x] **F-01** · Popup kaynak dosyaları ↔ `popup-bundle.js` senkronu kur · → [PROJECT_FEATURES.md §5 F-01](./PROJECT_FEATURES.md)
+- [ ] **F-14** · `processInlineStrings` row numerlandırma fix · → [PROJECT_FEATURES.md §5 F-14](./PROJECT_FEATURES.md)
 - [ ] **F-03** · `isSystemEntity` filtre listesini ortak modüle çıkar · → [PROJECT_FEATURES.md §5 F-03](./PROJECT_FEATURES.md)
 - [ ] **F-02** · `background.js` cache write race condition'ı serialize et · → [PROJECT_FEATURES.md §5 F-02](./PROJECT_FEATURES.md)
 

@@ -5,111 +5,101 @@
 
 ---
 
-## Şu Anda: **F-03 · Ortak filtre modülü (`isSystemEntity` dedup)**
+## Şu Anda: **F-14 · `processInlineStrings` row numerlandırma fix**
 
 | Alan | Değer |
 |------|-------|
-| **Atıf** | [PROJECT_FEATURES.md §5 F-03](./PROJECT_FEATURES.md), [TODO.md](./TODO.md) |
-| **Öncelik** | P0 |
+| **Atıf** | [PROJECT_FEATURES.md §5 F-14](./PROJECT_FEATURES.md), [TODO.md](./TODO.md) |
+| **Öncelik** | P0 (rapor akışı bunsuz test edilemiyor) |
 | **Branch** | `dev` |
 | **Açılış tarihi** | 2026-06-04 |
 
-### Niye bu görev sırada?
+### Niye bu görev sırada (F-03'ün önüne aldık)?
 
-Şu anda **aynı amaca hizmet eden iki ayrı filtre listesi** var:
+F-01 sonrası runtime testte ortaya çıktı: openpyxl ile üretilen şablon (inline-string formatlı, sharedStrings.xml yok) eklentiye yüklenip "Excel İndir" yapıldığında **9 satır veriden Excel sadece son satırı render ediyor**. Sebep `report-engine.js:263` `processInlineStrings` içinde tespit edildi:
 
-- `popup.js:9-34` → `SYSTEM_ENTITY_PATTERNS`, `SYSTEM_SERVICES`, `isSystemEntity()`
-- `injector.js:13-32` → `SKIP_SERVICES`, `SKIP_ENTITY`, `shouldSkip()`
+```js
+lineRecords.forEach(lineRec => {
+  templateRows.forEach(tRow => {
+    const filled = tRow.xml.replace(/\{\{...\}\}/g, ...);  // sadece placeholder doldurur
+    insertedXML += filled;     // ← her satır hâlâ r="13"
+  });
+});
+```
 
-Listeler farklı isimli, farklı sayıda madde içeriyor ve bağımsız evrim geçiriyorlar. Yeni bir sistem entity'sini (`UserSettings`, `BrandingSet` vb.) eklemek istediğimde iki yere de eklemeyi unutursam, popup gösterirken injector yakalıyor — ya da tersi. F-01'den sonra (kaynak tek hakikat) bu dedup'un anlamı var; F-01 öncesi bundle drift'i zaten her şeyi maskeliyordu.
+Sonuç XML'de 9 adet `<row r="13">` ve 9 adet `<c r="A13">` yan yana. Excel aynı `r=` ref'li çoklu girdiyi gördüğünde sadece **sonuncusunu** render eder.
 
-Bonus: `background.js`'de de `SKIP_FIELDS`, `isBadField()`, `cleanRecord()`, `cleanFields()` var. Bunlar farklı amaç (record sanitization) ama yine de "filtre" sınıfı; ortak modülde toplamak gelecekteki F-04 (`@odata.*` strip) için zemini hazırlar.
+Shared-strings code path'i bunu doğru yapıyor (line 405: `'<row r="' + newRowNum + '">'`). Inline path tasarımı eksik kalmış. **Bu pre-existing bir bug** — F-01 nedeniyle değil — ama F-01 runtime testi olmadan keşfedilemezdi.
+
+### Etki
+
+- Excel'e "Kaydet As .xlsx" yapan tüm şablonlar (inline-string formatı)
+- openpyxl/numpy/pandas ile üretilen şablonlar
+- Microsoft Office'in standart kayıt formatı
+
+Yani **gerçek kullanıcı senaryolarının çoğu**. Test edemediğimiz için kritik.
 
 ### Çözüm
 
-Yeni dosya: **`shared-filters.js`** (kökte, alt dizin yaratmadan — manifest yollarını basit tutmak için).
+`processInlineStrings`'i `<sheetData>` içeriğini **tam yeniden inşa edecek** şekilde refactor et:
 
-İçeriği iki bağımsız blokta organize edilecek:
+1. Tüm `<row r="N">` etiketlerini rowNum ile birlikte parse et
+2. Üç parçaya ayır:
+   - **Block öncesi** (0…startIdx-1) → olduğu gibi
+   - **Inserted rows** → her line × her template row, **artan rowNum** ve güncellenmiş cell ref'leriyle
+   - **Block sonrası** (endIdx+1…son) → `(insertedCount - blockSize)` kadar **offset edilmiş** rowNum ve cell ref'leriyle
+3. Tüm sheetData yeniden serileştirilir.
 
 ```js
-// === ENTITY FILTRESİ (popup + injector ortak kullanır) ===
-window.AHTAPOT_FILTERS = window.AHTAPOT_FILTERS || {};
-window.AHTAPOT_FILTERS.SYSTEM_SERVICES = new Set([...]);
-window.AHTAPOT_FILTERS.SYSTEM_ENTITY_PATTERNS = [...];
-window.AHTAPOT_FILTERS.isSystemEntity = function(entity, service) {...};
-
-// === RECORD SANITIZATION (background + report-engine ortak kullanır) ===
-window.AHTAPOT_FILTERS.SKIP_FIELDS = new Set([...]);
-window.AHTAPOT_FILTERS.isBadField = function(k) {...};
-window.AHTAPOT_FILTERS.cleanRecord = function(r) {...};
-window.AHTAPOT_FILTERS.cleanFields = function(record) {...};
+// Pseudo
+let writeRowNum = blockStartRowNum;
+lineRecords.forEach(lineRec => {
+  templateRows.forEach(tRow => {
+    let filled = tRow.xml.replace(/\{\{(\w+)\}\}/g, ...);
+    filled = filled.replace(/<row\s+r="\d+"/, '<row r="' + writeRowNum + '"');
+    filled = filled.replace(/<c\s+r="([A-Z]+)\d+"/g, '<c r="$1' + writeRowNum + '"');
+    newRows.push(filled);
+    writeRowNum++;
+  });
+});
+// + block sonrası rows için aynı offset uygulaması
+const newSheetData = '<sheetData>' + newRows.join('') + '</sheetData>';
+sheetXML = sheetXML.replace(/<sheetData[^>]*>[\s\S]*?<\/sheetData>/, newSheetData);
 ```
-
-`window.AHTAPOT_FILTERS` namespace kullanılmasının sebebi: MAIN world'de global çakışmadan kaçınmak (IFS uygulamasının kendi globals'ına dokunmamak).
-
-### Yükleme stratejisi (üç runtime'da farklı)
-
-1. **Popup** → `popup.html`'in head/body'sine yeni script tag eklenir:
-   ```html
-   <script src="shared-filters.js"></script>   <!-- diğerlerinden önce -->
-   <script src="xlsxwriter.js"></script>
-   <script src="report-engine.js"></script>
-   <script src="popup.js"></script>
-   ```
-
-2. **Background service worker** → `background.js`'in en üstüne:
-   ```js
-   importScripts('shared-filters.js');
-   ```
-   MV3 service worker'da `importScripts()` yasal; kullanım yerinde, async değil.
-
-3. **Injector (MAIN world)** → `manifest.json`'da content_scripts array'i:
-   ```jsonc
-   {
-     "matches": ["*://*/*"],
-     "js": ["shared-filters.js", "injector.js"],   // sıralı yüklenir, ikisi de MAIN world
-     "run_at": "document_start",
-     "world": "MAIN"
-   }
-   ```
-   **Not:** content.js (ISOLATED world) bu dosyaya erişmeyecek — orada `isSystemEntity` ihtiyacı yok. widget.js de kullanmıyor. Sadece MAIN'e enjekte.
 
 ### Etkilenecek dosyalar
 
-- `shared-filters.js` (yeni)
-- `manifest.json` (injector content script block güncellenir; **host_permissions ve diğerleri değişmez** → CWS yüzeyi büyümüyor)
-- `popup.html` (1 yeni script tag, en başa)
-- `popup.js` (lines 9-40 silinir, çağrılar `window.AHTAPOT_FILTERS.isSystemEntity()` olur)
-- `injector.js` (lines 13-39 silinir, `shouldSkip` `window.AHTAPOT_FILTERS.isSystemEntity` ile değiştirilir — adlandırma uyumu için wrapper kalabilir)
-- `background.js` (lines 163-187 silinir, en üste `importScripts('shared-filters.js')`)
+- `report-engine.js` (yalnızca `processInlineStrings` fonksiyonu — ~70 satır refactor)
 
 ### CWS uyumluluğu
 
-Bu görev CWS açısından **sıfır risk**:
-- Yeni `host_permissions` yok, mevcutla aynı (`*://*/*`).
-- Yeni `permissions` yok.
-- Yeni external script/CDN yok — sadece extension içi dosya.
-- `eval`/`new Function` yok.
-- Inline event handler yok.
-- `importScripts` MV3 service worker için **resmi olarak destekleniyor**.
+Sıfır risk. Sadece XML string manipülasyonu, yeni izin yok, external script yok.
+
+### Edge case'ler
+
+- **Lines verisi boş ise (0 kayıt):** Block tamamen silinir, sonrası `blockSize` kadar yukarı kayar.
+- **Template'te birden fazla satır (multi-row template):** Her line için tüm template rows kopyalanır (mevcut davranış korunur).
+- **Block hiç bulunamazsa:** Sheet olduğu gibi kalır, sadece header `{{X}}` replace edilir.
+- **r= attribute olmayan eski rows:** Regex match etmez, ihmal edilir (openpyxl her zaman ekler — IFS şablonları için sorun olmamalı).
 
 ### Done criteria
 
-- [ ] `shared-filters.js` oluşturuldu, içinde tüm entity + sanitize fonksiyonları.
-- [ ] `popup.html` script tag sırası: shared-filters → xlsxwriter → report-engine → popup.
-- [ ] `popup.js`'te eski liste/fonksiyon kaldı (alias değil, gerçekten silindi); çağrılar `window.AHTAPOT_FILTERS.*` üzerinden.
-- [ ] `injector.js`'te eski liste kaldı, çağrılar `window.AHTAPOT_FILTERS.isSystemEntity` üzerinden.
-- [ ] `manifest.json` MAIN world content script `["shared-filters.js", "injector.js"]` olarak güncellendi.
-- [ ] `background.js` en üstte `importScripts('shared-filters.js')`, eski SKIP_FIELDS/cleanRecord/cleanFields silindi, çağrılar `globalThis.AHTAPOT_FILTERS.*` üzerinden (service worker için `globalThis`).
-- [ ] Eklenti Chrome'a yüklenir, popup açılır, console error yok.
-- [ ] Bir IFS sayfasında entity yakalama akışı çalışıyor (regresyon yok).
+- [ ] `report-engine.js:263` `processInlineStrings` refactor edildi.
+- [ ] Mevcut `SatinalmaTalebi-Sablon.xlsx` ile "Excel İndir" sonucunda **9 satır** görünüyor (önceki: 1).
+- [ ] Block sonrası footer (`{{NOW}} ile oluşturuldu`) **doğru row'da** ve **doğru içerikle** render ediliyor.
+- [ ] Shared-strings code path (mevcut iyi çalışan kısım) regresyon yok.
 - [ ] `dev` branch'e tek commit.
 - [ ] `TODO.md` ve `CURRENTJOB.md` güncellendi.
 
-### Test notu (manuel)
+### Test akışı
 
-Danışman: Chrome'da extension'ı yeniden yükle → popup aç → "Henüz veri yok" hatasız → bir IFS sayfasında PO açar → eklenti popup'ı entity yakaladığını gösterir → "Excel İndir" sorunsuz çalışır. Console'da `AHTAPOT_FILTERS is not defined` veya benzeri hata olmamalı.
+1. `chrome://extensions/` → Ahtapot → Yeniden Yükle
+2. Popup → "📤 Şablon Yükle" → şablon hâlâ yüklü, gerek yok (storage)
+3. Yüklü şablonu seç → Header: PurchaseRequisitionSet → Block: LINES = PartRequisitionLines
+4. "📊 Excel İndir"
+5. Açılan xlsx'te tablo bölümünü kontrol et: 9 satır olmalı, sıra sütunu 1..9 (`LineNo`)
+6. Footer ("Ahtapot ile {{NOW}}...") en altta, doğru tarihte
 
 ---
 
-*Bu dosya, görev tamamlandığında bir sonraki TODO maddesinin (F-02 — cache write race) içeriğiyle değiştirilir.*
+*Bu dosya, görev tamamlandığında bir sonraki TODO maddesinin (F-03 — ortak filtre modülü) içeriğiyle değiştirilir.*

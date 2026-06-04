@@ -74,6 +74,10 @@ main  ──── şimdilik dondurulmuştur; ileride prod'a hizalanır veya sil
   `popup.js:9-34` ve `injector.js:13-32` aynı pattern listesini ayrı tutuyor. Drift garanti.
   **Çözüm:** Ortak `shared/filters.js` (background + injector + popup tarafından okunabilir).
 
+- **F-14: `processInlineStrings` row numerlandırması eksik** (runtime test sırasında keşfedildi)
+  `report-engine.js:263` inline-string formatlı şablonlarda her line için template row'u kopyalarken `<row r="N">` ve `<c r="A13">` ref attribute'larını yeniden yazmıyor. Sonuç: 9 satırlık veriden Excel sadece son satırı render eder (aynı `r=` çakışması). Shared-strings code path'i (line 405) bunu doğru yapıyor; inline path tasarımı eksik. Bu, openpyxl/Excel-kaydet-as gibi araçlarla üretilen tüm şablonları (sharedStrings.xml olmayan) etkiliyor.
+  **Çözüm:** `processInlineStrings`'i tüm `<sheetData>` içeriğini yeniden inşa edecek şekilde refactor et — inserted rows artan rowNum alır, block sonrası rows `(insertedCount - blockSize)` kadar offset edilir.
+
 ### P1 — Yüksek
 
 - **F-04: Cross-env "Çapraz Kopyala" birkaç kırık parça içeriyor**
@@ -136,14 +140,15 @@ Bu döngü, aşağıdakilerin hepsi sağlandığında kapanır:
 `TODO.md` bu sırayla doldurulur. Her madde tek `CURRENTJOB.md` döngüsüdür:
 
 1. **F-01** (popup-bundle senkron) — *önkoşul: diğer fix'ler buna bağlı*
-2. **F-03** (filtre listesi dedup) — *küçük, F-01 üzerine güvenle*
-3. **F-02** (cache race)
-4. **F-05** (single-record heuristic)
-5. **F-06** (pagination hash)
-6. **F-07** ($batch boundary)
-7. **F-04** (cross-env temizlik) — *en büyük; en sona*
-8. **F-08** (fetchRelatedLines config)
-9. **F-09** (projection URL detection)
+2. **F-14** (inline strings row fix) — *runtime testte ortaya çıktı; rapor akışı bunsuz test edilemez*
+3. **F-03** (filtre listesi dedup) — *küçük, F-01 üzerine güvenle*
+4. **F-02** (cache race)
+5. **F-05** (single-record heuristic)
+6. **F-06** (pagination hash)
+7. **F-07** ($batch boundary)
+8. **F-04** (cross-env temizlik) — *en büyük; en sona*
+9. **F-08** (fetchRelatedLines config)
+10. **F-09** (projection URL detection)
 
 ---
 

@@ -259,7 +259,9 @@ const ReportEngine = (() => {
   }
 
 
-  // Inline string şablonları işle (openpyxl varsayılan formatı)
+  // Inline string şablonları işle (openpyxl/Excel varsayılan formatı)
+  // sheetData'yı baştan inşa eder: block öncesi olduğu gibi, inserted rows
+  // artan rowNum ile, block sonrası (insertedCount - blockSize) kadar offset.
   async function processInlineStrings(zip, sheetKey, headerData, lineRecords, blockName, allBlocks) {
     allBlocks = allBlocks || { [blockName || 'LINES']: lineRecords };
     let sheetXML = zip[sheetKey];
@@ -267,55 +269,75 @@ const ReportEngine = (() => {
     const startMarker = '{{#' + block + '}}';
     const endMarker = '{{/' + block + '}}';
 
-    // Satırları parse et
-    const rowRe = /<row[\s][^>]*>[\s\S]*?<\/row>/g;
+    // Tüm <row>'ları rowNum ile birlikte parse et
+    const rowFullRe = /<row\s+r="(\d+)"[^>]*>[\s\S]*?<\/row>/g;
     const allRows = [];
     let m;
-    while ((m = rowRe.exec(sheetXML)) !== null) {
-      allRows.push({ xml: m[0] });
+    while ((m = rowFullRe.exec(sheetXML)) !== null) {
+      allRows.push({ xml: m[0], rowNum: parseInt(m[1]) });
     }
-    // 1. ÖNCE Lines bloğunu bul (marker'lar henüz işlenmedi)
+
     let startIdx = -1, endIdx = -1;
     allRows.forEach((row, i) => {
       if (row.xml.includes(startMarker)) startIdx = i;
       if (row.xml.includes(endMarker)) endIdx = i;
     });
 
-    // 2. Lines bloğunu genişlet
+    function rewriteRefs(xml, newRowNum) {
+      let out = xml.replace(/<row\s+r="\d+"/, '<row r="' + newRowNum + '"');
+      out = out.replace(/<c\s+r="([A-Z]+)\d+"/g, '<c r="$1' + newRowNum + '"');
+      return out;
+    }
+
+    const newRows = [];
+
     if (startIdx >= 0 && endIdx > startIdx && lineRecords && lineRecords.length > 0) {
       const templateRows = allRows.slice(startIdx + 1, endIdx);
-      let insertedXML = '';
+      const blockStartRowNum = allRows[startIdx].rowNum;
+      const blockEndRowNum = allRows[endIdx].rowNum;
+      const blockSize = blockEndRowNum - blockStartRowNum + 1;
 
+      // (1) Block öncesi — değişmeden
+      for (let i = 0; i < startIdx; i++) newRows.push(allRows[i].xml);
+
+      // (2) Inserted rows — her line × her template row, artan rowNum
+      let writeRowNum = blockStartRowNum;
       lineRecords.forEach(lineRec => {
         templateRows.forEach(tRow => {
-          // Template satırındaki etiketleri line verisiyle doldur
-          const filled = tRow.xml.replace(/\{\{([A-Za-z0-9_@]+)\}\}/g, (_, field) => {
+          let filled = tRow.xml.replace(/\{\{([A-Za-z0-9_@]+)\}\}/g, (_, field) => {
             const v = lineRec[field];
             return (v !== undefined && v !== null) ? esc(String(v)) : '';
           });
-          insertedXML += filled;
+          newRows.push(rewriteRefs(filled, writeRowNum));
+          writeRowNum++;
         });
       });
 
-      // Marker + template satırlarını kaldır, yerine doldurulmuş satırları koy
-      const removeSet = new Set([startIdx, endIdx, ...templateRows.map((_, i) => startIdx + 1 + i)]);
-      const prevRow = startIdx > 0 ? allRows[startIdx - 1] : null;
-
-      removeSet.forEach(i => { sheetXML = sheetXML.replace(allRows[i].xml, ''); });
-
-      if (prevRow) {
-        sheetXML = sheetXML.replace(prevRow.xml, prevRow.xml + insertedXML);
-      } else {
-        sheetXML = sheetXML.replace('<sheetData>', '<sheetData>' + insertedXML);
+      // (3) Block sonrası — offset
+      const insertedCount = lineRecords.length * templateRows.length;
+      const offset = insertedCount - blockSize;
+      for (let i = endIdx + 1; i < allRows.length; i++) {
+        const r = allRows[i];
+        newRows.push(offset === 0 ? r.xml : rewriteRefs(r.xml, r.rowNum + offset));
       }
-    } else if (startIdx >= 0) {
-      // Lines verisi yoksa marker satırlarını kaldır
-      [startIdx, endIdx].filter(i => i >= 0).forEach(i => {
-        sheetXML = sheetXML.replace(allRows[i].xml, '');
-      });
+    } else if (startIdx >= 0 && endIdx > startIdx) {
+      // Lines verisi boş — block'u tamamen kaldır, sonrasını blockSize kadar yukarı kaydır
+      const blockSize = allRows[endIdx].rowNum - allRows[startIdx].rowNum + 1;
+      for (let i = 0; i < startIdx; i++) newRows.push(allRows[i].xml);
+      for (let i = endIdx + 1; i < allRows.length; i++) {
+        const r = allRows[i];
+        newRows.push(rewriteRefs(r.xml, r.rowNum - blockSize));
+      }
+    } else {
+      // Block bulunamadı — tüm rows olduğu gibi
+      for (const r of allRows) newRows.push(r.xml);
     }
 
-    // 3. Header replace — Lines işlendikten sonra
+    // sheetData'yı yeniden serileştir
+    const newSheetData = '<sheetData>' + newRows.join('') + '</sheetData>';
+    sheetXML = sheetXML.replace(/<sheetData[^>]*>[\s\S]*?<\/sheetData>/, newSheetData);
+
+    // Header replace — Lines işlendikten sonra
     sheetXML = sheetXML.replace(/\{\{([A-Za-z0-9_@]+)\}\}/g, (_, field) => {
       const v = headerData[field];
       return (v !== undefined && v !== null) ? esc(String(v)) : '';
