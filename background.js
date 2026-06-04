@@ -160,6 +160,58 @@ async function setCache(cache) {
   await chrome.storage.local.set({ dataCache: cache });
 }
 
+// F-16 Faz 1.8: OData $metadata endpoint'inden service'in tüm EntitySet'lerini
+// öğren. IFS Aurena lazy-render — kapalı tab'lardaki entity'ler DOM'da yok,
+// ama metadata'da tanımlı. Bu listeyi cache'e yazıyoruz; popup dropdown'da
+// kullanıcı tüm seçenekleri görür.
+const _metadataInFlight = new Set();
+async function fetchServiceMetadata(tabId, svcBase) {
+  if (!svcBase || !svcBase.includes('.svc/')) return;
+  const key = tabId + '|' + svcBase;
+  if (_metadataInFlight.has(key)) return;
+  _metadataInFlight.add(key);
+  try {
+    const resp = await fetch(svcBase + '$metadata', {
+      credentials: 'include',
+      headers: { 'Accept': 'application/xml, text/xml' }
+    });
+    if (!resp.ok) {
+      console.log('[Ahtapot BG] $metadata fetch failed:', resp.status, svcBase);
+      return;
+    }
+    const xml = await resp.text();
+
+    // EntitySet adlarını çıkar — basit XML regex (DOMParser SW'de yok)
+    const entitySets = [];
+    const seen = new Set();
+    const re = /<EntitySet\s+Name="([^"]+)"[^>]*\/?>/g;
+    let m;
+    while ((m = re.exec(xml)) !== null) {
+      if (seen.has(m[1])) continue;
+      seen.add(m[1]);
+      // Aynı bloktan display name çıkarmaya çalış (Annotation Term="Common.Label")
+      const blockEnd = xml.indexOf('</EntitySet>', m.index);
+      const block = blockEnd >= 0 ? xml.slice(m.index, blockEnd) : xml.slice(m.index, m.index + 600);
+      const lblMatch = block.match(/Annotation[^>]*Term="(?:[^"]*\.)?(?:Label|Heading)"[^>]*String="([^"]+)"|sap:label="([^"]+)"/i);
+      const displayName = lblMatch ? (lblMatch[1] || lblMatch[2]) : null;
+      entitySets.push({ entity: m[1], displayName });
+    }
+
+    console.log('[Ahtapot BG] $metadata:', svcBase.match(/\/([^/]+)\.svc\//)?.[1], '→', entitySets.length, 'EntitySet');
+
+    const cache = await getCache();
+    if (!cache[tabId]) cache[tabId] = {};
+    cache[tabId].__serviceMeta = cache[tabId].__serviceMeta || {};
+    cache[tabId].__serviceMeta[svcBase] = entitySets;
+    await setCache(cache);
+    chrome.runtime.sendMessage({ type: 'METADATA_LOADED', tabId, count: entitySets.length }).catch(() => {});
+  } catch (e) {
+    console.log('[Ahtapot BG] $metadata error:', e.message);
+  } finally {
+    _metadataInFlight.delete(key);
+  }
+}
+
 const SKIP_FIELDS = new Set([
   'luname','keyref','Objgrants','Objstate',
   'Objkey','ParentObjkey','Objid','Objversion'
@@ -303,10 +355,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         recordCount: cache[tabId][entity].records.length
       }).catch(() => {});
 
+      // F-16 Faz 1.8: bu service'in $metadata'sı henüz çekilmediyse fetch et
+      // (fire-and-forget). Cache'lendiğinde popup dropdown'ları otomatik dolacak.
+      const svcMatch = url && url.match(/(https?:\/\/[^/]+\/[^?]+\.svc\/)/);
+      if (svcMatch && !cache[tabId].__serviceMeta?.[svcMatch[1]]) {
+        fetchServiceMetadata(tabId, svcMatch[1]);
+      }
+
       // Header entity yakalandıysa ilgili satırları çek
       // Sadece tek kayıt URL'lerinde çalış: PurchaseOrderSet(OrderNo='1')
       // Liste URL'leri atla: PurchaseOrderSet?$select=...
-      const isSingleRecord = url && url.includes('.svc/') && url.includes('(') && 
+      const isSingleRecord = url && url.includes('.svc/') && url.includes('(') &&
                              !entity.toLowerCase().includes('line') &&
                              !entity.toLowerCase().includes('part') &&
                              !entity.toLowerCase().includes('nopart');
@@ -325,9 +384,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const { tabId, cache } = await findTabWithData(null);
       const tabCache = cache[tabId] || {};
       const discovered = tabCache.__discovered || {};
+      const serviceMeta = tabCache.__serviceMeta || {};
+
+      // F-16 Faz 1.8: metadata'dan gelen entity'leri displayName ile birleştir
+      // (DOM keşfi ile çakışma varsa DOM keşfini koru)
+      const metaMap = {};
+      Object.values(serviceMeta).forEach(entitySets => {
+        (entitySets || []).forEach(e => {
+          if (!e || !e.entity) return;
+          metaMap[e.entity] = {
+            entity: e.entity,
+            displayName: discovered[e.entity]?.displayName || e.displayName || null
+          };
+        });
+      });
 
       const summary = Object.entries(tabCache)
-        .filter(([entity]) => entity !== '__discovered')
+        .filter(([entity]) => !entity.startsWith('__'))
         .map(([entity, data]) => ({
           entity,
           service: data.service,
@@ -335,12 +408,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           capturedAt: data.capturedAt,
           stale: data.stale,
           // F-16: keşif sırasında bulunan display name
-          displayName: discovered[entity]?.displayName || null,
+          displayName: discovered[entity]?.displayName || metaMap[entity]?.displayName || null,
           fields: data.records[0] ? cleanFields(data.records[0]) : []
         }));
 
-      // F-16: cache'te olmayan ama sayfada keşfedilmiş entity'leri ayrı listede dön
-      const discoveredOnly = Object.values(discovered)
+      // F-16: cache'te olmayan ama sayfada keşfedilmiş VEYA $metadata'dan
+      // öğrenilmiş entity'leri ayrı listede dön. Üç kaynak birleşiktir,
+      // entity adına göre tekilleştirilir.
+      const combined = {};
+      Object.values(discovered).forEach(d => { combined[d.entity] = d; });
+      Object.values(metaMap).forEach(d => {
+        if (!combined[d.entity]) combined[d.entity] = d;
+      });
+      const discoveredOnly = Object.values(combined)
         .filter(d => !tabCache[d.entity]);
 
       sendResponse({ cache: summary, discovered: discoveredOnly, tabId });

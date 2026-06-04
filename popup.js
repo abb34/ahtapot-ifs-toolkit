@@ -1737,7 +1737,7 @@ function buildHtmlReportFallback(headerRecord, blockData, templateName) {
 
 // Cache güncelleme mesajlarını dinle
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === 'CACHE_UPDATED') {
+  if (msg.type === 'CACHE_UPDATED' || msg.type === 'METADATA_LOADED') {
     refreshCache();
   }
 });
