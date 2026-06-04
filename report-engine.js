@@ -594,13 +594,33 @@ const ReportEngine = (() => {
     rows.push(['   tablo şablonunuzun üstüne ve altına koyun', '', '', '']);
     rows.push(['4. Dosyayı kaydedin ve Şablon Yükle ile yükleyin', '', '', '']);
 
-    return window.XLSXWriter.write(hdrs, rows);
+    // F-16 Faz 1.7: header + blok eşleştirmesini xlsx'in docProps/custom.xml
+    // dosyasına göm. Şablon yüklendiğinde analyzeTemplate bu meta'yı okur,
+    // popup blok-mapping satırlarını otomatik doldurur (kullanıcı manuel
+    // eşleştirme yapmak zorunda kalmaz).
+    const mapping = {
+      header: header ? header.entity : null,
+      blocks: blockEntries.map(b => ({ name: b.blockName, entity: b.ent.entity }))
+    };
+    const customXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"'
+      + ' xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">'
+      + '<property fmtid="{D5CDD505-2E9C-101B-9397-08002B2CF9AE}" pid="2" name="AhtapotMapping">'
+      + '<vt:lpwstr>' + esc(JSON.stringify(mapping)) + '</vt:lpwstr>'
+      + '</property></Properties>';
+
+    return window.XLSXWriter.write(hdrs, rows, {
+      files: { 'docProps/custom.xml': customXml },
+      contentTypes: '<Override PartName="/docProps/custom.xml" ContentType="application/vnd.openxmlformats-officedocument.custom-properties+xml"/>',
+      rels: '<Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties" Target="docProps/custom.xml"/>'
+    });
   }
 
   // ── Şablon analizi ───────────────────────────────────────
   async function analyzeTemplate(templateBuffer) {
     try {
-      const zip = parseZip(new Uint8Array(templateBuffer));
+      // parseZipAsync: deflate destekli (Excel-kaydet sonrası deflate'lenmiş custom.xml de okunur)
+      const zip = await parseZipAsync(new Uint8Array(templateBuffer));
       if (!zip) return { headerPlaceholders:[], blocks:[] };
 
       const hPH = new Set();
@@ -632,9 +652,36 @@ const ReportEngine = (() => {
         [...s.matchAll(/\{\{([A-Za-z0-9_@]+)\}\}/g)].forEach(m => hPH.add(m[1]));
       });
 
+      // F-16 Faz 1.7: docProps/custom.xml'den AhtapotMapping meta'sını oku.
+      // Ahtapot ile üretilen şablonlar header + blok entity eşleştirmesini buraya gömer.
+      // Bulunursa analysis.headerEntity ve analysis.blocks[i].entity otomatik doldurulur.
+      let headerEntity = null;
+      const blockEntityMap = {};
+      if (zip['docProps/custom.xml']) {
+        const m = zip['docProps/custom.xml']
+          .match(/name="AhtapotMapping"[^>]*>[\s\S]*?<vt:lpwstr>([\s\S]*?)<\/vt:lpwstr>/);
+        if (m) {
+          try {
+            const decoded = m[1]
+              .replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+              .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&apos;/g, "'");
+            const mapping = JSON.parse(decoded);
+            headerEntity = mapping.header || null;
+            (mapping.blocks || []).forEach(b => {
+              if (b && b.name) blockEntityMap[b.name] = b.entity || '';
+            });
+          } catch(e) {}
+        }
+      }
+
       return {
         headerPlaceholders: [...hPH],
-        blocks: Object.keys(blocks).map(name => ({ name, placeholders:[] }))
+        blocks: Object.keys(blocks).map(name => ({
+          name,
+          placeholders: [],
+          entity: blockEntityMap[name] || ''
+        })),
+        headerEntity
       };
     } catch(e) {
       return { headerPlaceholders:[], blocks:[] };

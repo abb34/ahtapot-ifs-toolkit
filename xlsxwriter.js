@@ -221,10 +221,24 @@
 
   // Public API
   global.XLSXWriter = {
-    // headers: string[], rows: any[][]
+    // headers: string[], rows: any[][], extras?: { files, contentTypes, rels }
+    // extras.files: { 'docProps/custom.xml': '<xml>...' } gibi ek dosyalar
+    // extras.contentTypes: '<Override .../>' (string) — [Content_Types].xml </Types>'tan önce eklenir
+    // extras.rels: '<Relationship .../>' (string) — _rels/.rels </Relationships>'ten önce eklenir
     // returns: Uint8Array (xlsx binary)
-    write: function(headers, rows) {
+    write: function(headers, rows, extras) {
       const files = buildXLSX(headers, rows);
+      if (extras) {
+        if (extras.files) Object.assign(files, extras.files);
+        if (extras.contentTypes) {
+          files['[Content_Types].xml'] = files['[Content_Types].xml']
+            .replace('</Types>', extras.contentTypes + '</Types>');
+        }
+        if (extras.rels) {
+          files['_rels/.rels'] = files['_rels/.rels']
+            .replace('</Relationships>', extras.rels + '</Relationships>');
+        }
+      }
       return makeZip(files);
     },
 

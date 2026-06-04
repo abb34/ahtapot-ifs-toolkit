@@ -307,12 +307,30 @@ document.getElementById('template-file-input').addEventListener('change', async 
 
     renderTemplateList(templates);
     rebuildBlockMappingsFromTemplate(selectedTemplate);
+    // F-16 Faz 1.7: şablon meta'sında header entity varsa header dropdown'unu auto-set
+    if (analysis.headerEntity) {
+      const headerSel = document.getElementById('header-entity-select');
+      if (headerSel) {
+        // Dropdown'da yoksa ekle (sayfada henüz yakalanmamış olabilir)
+        if (!Array.from(headerSel.options).find(o => o.value === analysis.headerEntity)) {
+          const opt = document.createElement('option');
+          opt.value = analysis.headerEntity;
+          opt.textContent = analysis.headerEntity + ' (şablondan)';
+          headerSel.appendChild(opt);
+        }
+        headerSel.value = analysis.headerEntity;
+      }
+    }
     addLog(`Şablon yüklendi: ${file.name}`, 'ok');
-    addLog(`Header: ${analysis.headerPlaceholders.join(', ')}`, 'info');
-    analysis.blocks.forEach(b => {
-      addLog(`Blok [${b.name}]: ${b.placeholders.join(', ')} — entity için aşağıdaki "Veri Eşleştirme" bölümünden seç`, 'info');
-    });
-    showToast('📤 Şablon yüklendi! Her blok için entity seç.');
+    if (analysis.headerEntity) {
+      addLog(`Auto-detect: header=${analysis.headerEntity}, bloklar=${analysis.blocks.map(b => b.name + ':' + (b.entity || '?')).join(', ')}`, 'ok');
+    } else {
+      addLog(`Header: ${analysis.headerPlaceholders.join(', ')}`, 'info');
+      analysis.blocks.forEach(b => {
+        addLog(`Blok [${b.name}]: ${b.placeholders.join(', ')} — entity için aşağıdaki "Veri Eşleştirme" bölümünden seç`, 'info');
+      });
+    }
+    showToast(analysis.headerEntity ? '📤 Şablon ve entity eşleştirmesi yüklendi!' : '📤 Şablon yüklendi! Her blok için entity seç.');
   } catch (err) {
     addLog('Şablon yükleme hatası: ' + err.message, 'err');
     showToast('Hata: ' + err.message, 'error');
