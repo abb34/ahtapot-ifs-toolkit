@@ -108,6 +108,10 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
 let currentHostname = '';
 let currentUrl = '';
 
+// F-16: aktif sekmedeki content.js'in DOM'dan keşfettiği LU/entity-set listesi.
+// Her eleman: { entity, displayName?, luName?, source }. Background cache'inden gelir.
+let discoveredEntities = [];
+
 async function detectPage() {
   const ctxEl = document.getElementById('page-context');
   const hnEl = document.getElementById('current-hostname');
@@ -175,6 +179,8 @@ let selectedTemplateIndex = null;
 async function refreshCache() {
   const resp = await sendMsg({ type: 'GET_CACHE' });
   cacheData = resp?.cache || [];
+  // F-16: cache'te olmayan ama sayfada DOM'dan keşfedilmiş entity'ler
+  discoveredEntities = resp?.discovered || [];
 
   const badge = document.getElementById('cache-badge');
   const total = cacheData.reduce((s, e) => s + e.recordCount, 0);
@@ -263,45 +269,10 @@ function populateEntitySelects() {
 
   // FR sekmesi kaldırıldı
 
-  // Blok mapping select'lerini güncelle
+  // Blok mapping select'lerini güncelle — fillBlockEntitySelect (cache + discovered)
   document.querySelectorAll('.block-entity-select').forEach(sel => {
     const curr = sel.value;
-    // Manuel mode'da yazılı entity adını koru
-    const row = sel.closest('.block-mapping-row');
-    const manualInput = row?.querySelector('.block-entity-manual');
-    const manualValue = manualInput?.value || '';
-    sel.innerHTML = '<option value="">-- Yok --</option>';
-    const biz = cacheData.filter(e => !isSystemEntity(e.entity, e.service));
-    const sys = cacheData.filter(e => isSystemEntity(e.entity, e.service));
-    biz.forEach(e => {
-      const opt = document.createElement('option');
-      opt.value = e.entity;
-      opt.textContent = e.entity + ' (' + e.recordCount + ')';
-      sel.appendChild(opt);
-    });
-    if (sys.length) {
-      const sep = document.createElement('option');
-      sep.disabled = true; sep.textContent = '── Sistem ──';
-      sel.appendChild(sep);
-      sys.forEach(e => {
-        const opt = document.createElement('option');
-        opt.value = e.entity;
-        opt.textContent = e.entity + ' (' + e.recordCount + ')';
-        sel.appendChild(opt);
-      });
-    }
-    // "Diğer (elle yaz)..." seçeneği — F-16: yakalanmamış entity adı verilebilir
-    const otherOpt = document.createElement('option');
-    otherOpt.value = '__manual__';
-    otherOpt.textContent = '✏️ Diğer (elle yaz)...';
-    sel.appendChild(otherOpt);
-    // Önceki seçimi koru; manuel mode'daysa manuel mode'da kalsın
-    if (curr === '__manual__' || (manualValue && !biz.find(e => e.entity === manualValue) && !sys.find(e => e.entity === manualValue))) {
-      sel.value = '__manual__';
-      if (manualInput) manualInput.style.display = '';
-    } else if (curr) {
-      sel.value = curr;
-    }
+    fillBlockEntitySelect(sel, curr);
   });
 }
 
@@ -1146,65 +1117,68 @@ function addBlockRow(blockName = '', entityValue = '') {
     + '<select class="block-entity-select" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;font-size:11px">'
     + '<option value="">-- Yok --</option>'
     + '</select>'
-    + '<input type="text" class="block-entity-manual" placeholder="Entity adı (örn. PartRequisitionLines)" '
-    + 'style="display:none;width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;font-size:11px;font-family:monospace;margin-top:4px">'
     + '</div>'
     + '<button class="btn-remove-block" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 2px;margin-top:14px" title="Kaldır">×</button>';
 
   container.appendChild(row);
 
   const sel = row.querySelector('.block-entity-select');
-  const manualInput = row.querySelector('.block-entity-manual');
   const nameInput = row.querySelector('.block-name-input');
 
-  // Yakalanmış entity'leri doldur
-  let entityInList = false;
-  cacheData.forEach(e => {
-    const opt = document.createElement('option');
-    opt.value = e.entity;
-    opt.textContent = e.entity + ' (' + e.recordCount + ')';
-    if (e.entity === entityValue) { opt.selected = true; entityInList = true; }
-    sel.appendChild(opt);
-  });
+  // Yakalanmış entity'leri doldur (cache + sayfada keşfedilmiş)
+  fillBlockEntitySelect(sel, entityValue);
 
-  // "Diğer (elle yaz)..." seçeneği — auto-fetch için, henüz yakalanmamış entity adı verilebilir
-  const otherOpt = document.createElement('option');
-  otherOpt.value = '__manual__';
-  otherOpt.textContent = '✏️ Diğer (elle yaz)...';
-  sel.appendChild(otherOpt);
-
-  // entityValue cache'de yoksa manuel mode'a geç
-  if (entityValue && !entityInList) {
-    sel.value = '__manual__';
-    manualInput.style.display = '';
-    manualInput.value = entityValue;
-  }
-
-  sel.addEventListener('change', () => {
-    if (sel.value === '__manual__') {
-      manualInput.style.display = '';
-      manualInput.focus();
-    } else {
-      manualInput.style.display = 'none';
-      manualInput.value = '';
-    }
-    saveBlockMappingToTemplate();
-  });
-  manualInput.addEventListener('input', saveBlockMappingToTemplate);
+  sel.addEventListener('change', saveBlockMappingToTemplate);
   nameInput.addEventListener('input', saveBlockMappingToTemplate);
   row.querySelector('.btn-remove-block').addEventListener('click', () => { row.remove(); saveBlockMappingToTemplate(); });
 
   return row;
 }
 
+// F-16: tek bir <select> için entity opsiyonlarını doldur.
+// Kaynak: cacheData (yakalanmış) + discoveredEntities (sayfada DOM'dan bulunmuş ama henüz yakalanmamış).
+// Discovered entity için display name varsa "Görünür İsim (EntitySet)" formatında gösterilir.
+function fillBlockEntitySelect(sel, selectedEntity) {
+  sel.innerHTML = '<option value="">-- Yok --</option>';
+  const biz = cacheData.filter(e => !window.AHTAPOT_FILTERS
+    ? !isSystemEntity(e.entity, e.service)
+    : !window.AHTAPOT_FILTERS.isSystemEntity(e.entity, e.service));
+  biz.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.entity;
+    opt.textContent = (e.displayName ? e.displayName + ' — ' : '') + e.entity + ' (' + e.recordCount + ' kayıt)';
+    if (e.entity === selectedEntity) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  // Sayfada DOM'dan keşfedilmiş ama henüz yakalanmamış entity'ler (Faz 1.5'te dolacak)
+  const discovered = (discoveredEntities || []).filter(d => !biz.find(b => b.entity === d.entity));
+  if (discovered.length) {
+    const sep = document.createElement('option');
+    sep.disabled = true; sep.textContent = '── Sayfada bulunan (henüz yakalanmamış) ──';
+    sel.appendChild(sep);
+    discovered.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d.entity;
+      opt.textContent = (d.displayName ? d.displayName + ' — ' : '') + d.entity;
+      if (d.entity === selectedEntity) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+  // Seçili entity hiçbir listede yoksa bile placeholder option ekle (eski şablon backup)
+  if (selectedEntity && !sel.value) {
+    const opt = document.createElement('option');
+    opt.value = selectedEntity;
+    opt.textContent = selectedEntity + ' (kayıtlı)';
+    opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
 function getBlockMappings() {
   const mappings = [];
   document.querySelectorAll('.block-mapping-row').forEach(row => {
     const name = row.querySelector('.block-name-input')?.value?.trim();
-    let entity = row.querySelector('.block-entity-select')?.value;
-    if (entity === '__manual__') {
-      entity = row.querySelector('.block-entity-manual')?.value?.trim() || '';
-    }
+    const entity = row.querySelector('.block-entity-select')?.value;
     if (name) mappings.push({ name, entity: entity || '' });
   });
   return mappings;

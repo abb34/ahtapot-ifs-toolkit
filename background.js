@@ -242,6 +242,31 @@ async function findTabWithData(entityName) {
 // ─── MESSAGE HANDLER ──────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
+  // ── F-16: content.js DOM'da keşfettiği entity'leri buraya gönderir ──
+  // Popup blok dropdown'larında "henüz yakalanmamış ama sayfada bulunan"
+  // entity'leri göstermek için tutulur.
+  if (msg.type === 'DISCOVERED_ENTITIES') {
+    const tabId = sender.tab?.id;
+    if (!tabId || !msg.entities || !msg.entities.length) return;
+    (async () => {
+      const cache = await getCache();
+      if (!cache[tabId]) cache[tabId] = {};
+      const meta = cache[tabId].__discovered || {};
+      msg.entities.forEach(e => {
+        if (!e || !e.entity) return;
+        const existing = meta[e.entity] || {};
+        meta[e.entity] = {
+          entity: e.entity,
+          displayName: e.displayName || existing.displayName || null,
+          luName: e.luName || existing.luName || null
+        };
+      });
+      cache[tabId].__discovered = meta;
+      await setCache(cache);
+    })();
+    return;
+  }
+
   // ── Veri yakalama (injector.js → content.js → burası) ──
   if (msg.type === 'DATA_CAPTURED') {
     const tabId = sender.tab?.id;
@@ -299,17 +324,26 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     (async () => {
       const { tabId, cache } = await findTabWithData(null);
       const tabCache = cache[tabId] || {};
+      const discovered = tabCache.__discovered || {};
 
-      const summary = Object.entries(tabCache).map(([entity, data]) => ({
-        entity,
-        service: data.service,
-        recordCount: data.records.length,
-        capturedAt: data.capturedAt,
-        stale: data.stale,
-        fields: data.records[0] ? cleanFields(data.records[0]) : []
-      }));
+      const summary = Object.entries(tabCache)
+        .filter(([entity]) => entity !== '__discovered')
+        .map(([entity, data]) => ({
+          entity,
+          service: data.service,
+          recordCount: data.records.length,
+          capturedAt: data.capturedAt,
+          stale: data.stale,
+          // F-16: keşif sırasında bulunan display name
+          displayName: discovered[entity]?.displayName || null,
+          fields: data.records[0] ? cleanFields(data.records[0]) : []
+        }));
 
-      sendResponse({ cache: summary, tabId });
+      // F-16: cache'te olmayan ama sayfada keşfedilmiş entity'leri ayrı listede dön
+      const discoveredOnly = Object.values(discovered)
+        .filter(d => !tabCache[d.entity]);
+
+      sendResponse({ cache: summary, discovered: discoveredOnly, tabId });
     })();
     return true;
   }

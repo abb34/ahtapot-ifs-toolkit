@@ -4,7 +4,7 @@
 
 ---
 
-## Şu Anda: **F-16 Faz 1 · Şablon yüklerken entity mapping UI**
+## Şu Anda: **F-16 Faz 1 (revize) · Şablon yükleme + sayfa keşif tabanlı dropdown**
 
 | Alan | Değer |
 |------|-------|

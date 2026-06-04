@@ -545,31 +545,75 @@
     return window.location.origin + '/main/ifsapplications/projection/v1/';
   }
 
+  // F-16: bir element'in display name'ini çıkar (sayfada görünür Türkçe başlık).
+  // IFS Aurena tipik attribute'lar: header, title, aria-label, label.
+  // Bulamazsa null döner; çağrı yerinde fallback olarak entity adı kullanılır.
+  function extractDisplayName(el) {
+    if (!el) return null;
+    const tryAttrs = ['header', 'header-title', 'title', 'aria-label', 'label', 'data-label'];
+    for (const a of tryAttrs) {
+      const v = el.getAttribute(a);
+      if (v && v.trim() && !/^[a-z][a-zA-Z]+$/.test(v.trim())) return v.trim();
+    }
+    // Yakın container'larda ara — fnd-tab title, fnd-card-header, vb.
+    const parents = ['fnd-tab', 'fnd-card', 'fnd-page', 'fnd-list-card', '[title]'];
+    for (const p of parents) {
+      const parent = el.closest(p);
+      if (parent && parent !== el) {
+        for (const a of tryAttrs) {
+          const v = parent.getAttribute(a);
+          if (v && v.trim() && !/^[a-z][a-zA-Z]+$/.test(v.trim())) return v.trim();
+        }
+      }
+    }
+    return null;
+  }
+
+  // F-16: DOM'da bulduğumuz entity'leri background'a göndererek popup
+  // dropdown'larında "henüz yakalanmamış" olarak da gösterebiliriz.
+  function reportDiscoveredEntities(entries) {
+    if (!entries.length) return;
+    try {
+      chrome.runtime.sendMessage({ type: 'DISCOVERED_ENTITIES', entities: entries });
+    } catch (e) {}
+  }
+
   function scanForLUNames() {
-    // IFS DOM'unda lu-name içeren elementler
-    // fnd-listbox, fnd-grid, [data-lu-name], [lu-name]
+    // IFS DOM'unda lu-name veya entity-set içeren elementler
     const selectors = [
       '[lu-name]',
-      '[data-lu-name]', 
-      'fnd-grid[entity-set]',
+      '[data-lu-name]',
       '[entity-set]',
+      'fnd-grid',
+      'fnd-list-card',
+      'fnd-tab[entity-set]',
     ];
+
+    const fresh = [];
 
     selectors.forEach(sel => {
       document.querySelectorAll(sel).forEach(el => {
-        const lu = el.getAttribute('lu-name') || 
-                   el.getAttribute('data-lu-name') ||
-                   el.getAttribute('entity-set');
-        if (!lu || _observedLUs.has(lu)) return;
-        
-        // Sistem LU'ları atla
-        if (/^(Framework|UserProfile|Appearance|Translation)/i.test(lu)) return;
-        
-        _observedLUs.add(lu);
-        console.log('[Ahtapot] DOM LU bulundu:', lu);
-        fetchLUData(lu, extractServiceUrl());
+        const lu = el.getAttribute('lu-name') ||
+                   el.getAttribute('data-lu-name');
+        const explicitEntitySet = el.getAttribute('entity-set');
+        const entitySet = explicitEntitySet || (lu ? lu + 'Set' : null);
+        if (!entitySet) return;
+
+        // Sistem LU/EntitySet'leri atla
+        if (/^(Framework|UserProfile|Appearance|Translation|Bookmark|Stream|Widget|RecentDoc|GetCurrent|EnumerateLanguages)/i.test(entitySet)) return;
+        if (_observedLUs.has(entitySet)) return;
+
+        _observedLUs.add(entitySet);
+        const displayName = extractDisplayName(el);
+        fresh.push({ entity: entitySet, displayName: displayName || null, luName: lu || null });
+        console.log('[Ahtapot] DOM keşif:', entitySet, displayName ? '(' + displayName + ')' : '');
+
+        // Sayfadaki entity için arka planda fetch dene (mevcut davranış)
+        if (lu) fetchLUData(lu, extractServiceUrl());
       });
     });
+
+    if (fresh.length) reportDiscoveredEntities(fresh);
   }
 
   function startDOMObserver() {
