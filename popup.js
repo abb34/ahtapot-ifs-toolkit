@@ -527,9 +527,9 @@ async function generateReport(outputType) {
       const htmlUrl = URL.createObjectURL(htmlBlob);
       const win = window.open(htmlUrl, '_blank');
       if (win) {
-        win.onload = () => setTimeout(() => win.print(), 400);
         addLog('PDF için HTML rapor açıldı', 'ok');
         showToast('🖨️ Yazdır penceresi açılıyor...');
+        setTimeout(() => { try { URL.revokeObjectURL(htmlUrl); } catch(e) {} }, 10000);
       } else {
         showToast('Popup engellendi — tarayıcı izni verin', 'error');
       }
@@ -882,8 +882,34 @@ const LANGS = {
     uploadTemplate: '📤 Şablon Yükle', downloadSample: '⬇️ Örnek İndir',
     generateExcel: '📊 Excel İndir', generatePdf: '🖨️ PDF',
     blockName: 'Blok Adı (şablonda {{#...}})',
-    addBlock: '+ Blok Ekle',
-    activeLang: 'Türkçe',
+    addBlock: '+ Blok Ekle', activeLang: 'Türkçe',
+    templateLabel: 'Şablon', dataMapping: 'Veri Eşleştirme',
+    headerData: 'Header Verisi (ana kayıt)', blockLabel: 'Blok Adı',
+    entitySelect: '-- Entity seç --', fieldSelect: '-- Alan seç --',
+    reportLoading: 'Rapor hazırlanıyor...', copyingLoading: 'Kopyalanıyor...',
+    calculating: 'Hesaplanıyor...',
+    removeEnv: '🗑 Kaldır', preview: '👁 Önizle',
+    runAnaliz: '▶ Analiz Çalıştır', resetAnaliz: 'Sıfırla',
+    result: 'Sonuç', iconLabel: 'İkon', labelLabel: 'Etiket', colorLabel: 'Renk',
+    conflictStrategy: 'Çakışma Stratejisi',
+    skip: 'Atla', update: 'Güncelle', error: 'Hata Ver',
+    notePlaceholder: 'Not içeriği...',
+    dataSelect: 'Veri Seç', metrics: 'Metrikler',
+    numericField: 'Sayısal alan seç, metrik ekle:',
+    noMetrics: 'Metrik eklenmedi',
+    entitySelectRun: 'Entity seç, group by ve metrik ekle, çalıştır',
+    clearAllCache: '🗑 Tüm Cache\'i Temizle', clearTemplates: '🗑 Tüm Şablonları Sil',
+    savedEnvs: 'Kayıtlı Ortamlar', currentEnv: 'Mevcut Ortam',
+    envColorLabel: 'Ortam Rengi & Etiketi', sourceData: 'Kaynak Veri',
+    targetEnv: 'Hedef Ortam', targetUrl: 'Hedef URL',
+    pageNotes: 'Bu Sayfadaki Notlar', addNewNote: 'Yeni Not Ekle',
+    appLabel: 'Uygulama', appDesc: 'Danışman ve son kullanıcılar için ERP araç seti.',
+    wWakeLockOn: 'Ekran kilidi aktif', wWakeLockOff: 'Ekran kilidi kapalı',
+    wNote: 'Hızlı Not', wNotePlaceholder: 'Bu sayfa için not ekle...',
+    wAddNote: '+ Not Ekle', wReports: 'Kayıtlı Raporlar',
+    wRun: '▶ Çalıştır', wNoTemplate: 'Kayıtlı şablon yok',
+    wNoTemplateHint: 'Popup arayüzünden şablon yükleyin', wLoading: 'Yükleniyor...',
+    capturedData: 'Yakalanan ERP Verisi',
   },
   en: {
     report: '📊 Report', env: '🏷️ Environment', cross: '🔄 Cross',
@@ -894,8 +920,34 @@ const LANGS = {
     uploadTemplate: '📤 Upload Template', downloadSample: '⬇️ Download Sample',
     generateExcel: '📊 Download Excel', generatePdf: '🖨️ PDF',
     blockName: 'Block Name (in template {{#...}})',
-    addBlock: '+ Add Block',
-    activeLang: 'English',
+    addBlock: '+ Add Block', activeLang: 'English',
+    templateLabel: 'Template', dataMapping: 'Data Mapping',
+    headerData: 'Header Data (main record)', blockLabel: 'Block Name',
+    entitySelect: '-- Select entity --', fieldSelect: '-- Select field --',
+    reportLoading: 'Generating report...', copyingLoading: 'Copying...',
+    calculating: 'Calculating...',
+    removeEnv: '🗑 Remove', preview: '👁 Preview',
+    runAnaliz: '▶ Run Analysis', resetAnaliz: 'Reset',
+    result: 'Result', iconLabel: 'Icon', labelLabel: 'Label', colorLabel: 'Color',
+    conflictStrategy: 'Conflict Strategy',
+    skip: 'Skip', update: 'Update', error: 'Error',
+    notePlaceholder: 'Note content...',
+    dataSelect: 'Select Data', metrics: 'Metrics',
+    numericField: 'Select numeric field, add metric:',
+    noMetrics: 'No metrics added',
+    entitySelectRun: 'Select entity, group by and metric, then run',
+    clearAllCache: '🗑 Clear All Cache', clearTemplates: '🗑 Delete All Templates',
+    savedEnvs: 'Saved Environments', currentEnv: 'Current Environment',
+    envColorLabel: 'Environment Color & Label', sourceData: 'Source Data',
+    targetEnv: 'Target Environment', targetUrl: 'Target URL',
+    pageNotes: 'Notes on This Page', addNewNote: 'Add New Note',
+    appLabel: 'Application', appDesc: 'ERP toolkit for consultants and end users.',
+    wWakeLockOn: 'Screen lock active', wWakeLockOff: 'Screen lock off',
+    wNote: 'Quick Note', wNotePlaceholder: 'Add a note for this page...',
+    wAddNote: '+ Add Note', wReports: 'Saved Reports',
+    wRun: '▶ Run', wNoTemplate: 'No saved templates',
+    wNoTemplateHint: 'Upload a template from the popup', wLoading: 'Loading...',
+    capturedData: 'Captured ERP Data',
   },
   it: {
     report: '📊 Report', env: '🏷️ Ambiente', cross: '🔄 Copia',
@@ -906,8 +958,34 @@ const LANGS = {
     uploadTemplate: '📤 Carica Template', downloadSample: '⬇️ Scarica Esempio',
     generateExcel: '📊 Scarica Excel', generatePdf: '🖨️ PDF',
     blockName: 'Nome Blocco (nel template {{#...}})',
-    addBlock: '+ Aggiungi Blocco',
-    activeLang: 'Italiano',
+    addBlock: '+ Aggiungi Blocco', activeLang: 'Italiano',
+    templateLabel: 'Template', dataMapping: 'Mappatura Dati',
+    headerData: 'Dati Header (record principale)', blockLabel: 'Nome Blocco',
+    entitySelect: '-- Seleziona entità --', fieldSelect: '-- Seleziona campo --',
+    reportLoading: 'Generazione report...', copyingLoading: 'Copia in corso...',
+    calculating: 'Calcolo in corso...',
+    removeEnv: '🗑 Rimuovi', preview: '👁 Anteprima',
+    runAnaliz: '▶ Esegui Analisi', resetAnaliz: 'Reset',
+    result: 'Risultato', iconLabel: 'Icona', labelLabel: 'Etichetta', colorLabel: 'Colore',
+    conflictStrategy: 'Strategia Conflitto',
+    skip: 'Salta', update: 'Aggiorna', error: 'Errore',
+    notePlaceholder: 'Contenuto nota...',
+    dataSelect: 'Seleziona Dati', metrics: 'Metriche',
+    numericField: 'Seleziona campo numerico, aggiungi metrica:',
+    noMetrics: 'Nessuna metrica aggiunta',
+    entitySelectRun: 'Seleziona entità, raggruppa e metrica, poi esegui',
+    clearAllCache: '🗑 Pulisci Tutta la Cache', clearTemplates: '🗑 Elimina Tutti i Template',
+    savedEnvs: 'Ambienti Salvati', currentEnv: 'Ambiente Corrente',
+    envColorLabel: 'Colore & Etichetta Ambiente', sourceData: 'Dati Sorgente',
+    targetEnv: 'Ambiente di Destinazione', targetUrl: 'URL Destinazione',
+    pageNotes: 'Note su Questa Pagina', addNewNote: 'Aggiungi Nuova Nota',
+    appLabel: 'Applicazione', appDesc: 'Toolkit ERP per consulenti e utenti finali.',
+    wWakeLockOn: 'Blocco schermo attivo', wWakeLockOff: 'Blocco schermo disattivo',
+    wNote: 'Nota Rapida', wNotePlaceholder: 'Aggiungi una nota per questa pagina...',
+    wAddNote: '+ Aggiungi Nota', wReports: 'Report Salvati',
+    wRun: '▶ Esegui', wNoTemplate: 'Nessun template salvato',
+    wNoTemplateHint: 'Carica un template dal popup', wLoading: 'Caricamento...',
+    capturedData: 'Dati ERP Acquisiti',
   }
 };
 
@@ -935,11 +1013,87 @@ function applyLang(lang) {
     'btn-generate-excel': t.generateExcel,
     'btn-generate-pdf': t.generatePdf,
     'btn-add-block': t.addBlock,
+    'btn-remove-env': t.removeEnv,
+    'btn-cross-preview': t.preview,
+    'btn-analiz-run': t.runAnaliz,
+    'btn-analiz-reset': t.resetAnaliz,
+    'btn-clear-all-cache': t.clearAllCache,
+    'btn-clear-templates': t.clearTemplates,
   };
   Object.entries(btnMap).forEach(([id, label]) => {
     const el = document.getElementById(id);
     if (el) el.textContent = label;
   });
+
+  // Text elementler
+  const textMap = {
+    'settings-active-lang': t.activeLang,
+    'analiz-result-label': t.result,
+  };
+  Object.entries(textMap).forEach(([id, label]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = label;
+  });
+
+  // Section label'lar (data-i18n attribute ile)
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if (!t[key]) return;
+    // Child elementi olan elementlerde sadece ilk text node'u güncelle
+    const hasChildren = el.children.length > 0;
+    if (hasChildren) {
+      // İlk text node'u bul ve güncelle
+      for (let node of el.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+          node.textContent = t[key];
+          return;
+        }
+      }
+      // Text node yoksa prepend et
+      el.prepend(document.createTextNode(t[key]));
+    } else {
+      el.textContent = t[key];
+    }
+  });
+
+  // Loading spinnerlar
+  const loadingMap = {
+    'report-loading': t.reportLoading,
+    'cross-loading': t.copyingLoading,
+  };
+  Object.entries(loadingMap).forEach(([id, label]) => {
+    const el = document.getElementById(id);
+    if (el) { const span = el.querySelector('span'); if (span) span.textContent = label; }
+  });
+
+  // Select placeholder option'ları
+  document.querySelectorAll('select option[value=""]').forEach(opt => {
+    if (opt.textContent.includes('Entity') || opt.textContent.includes('seç') || opt.textContent.includes('Select') || opt.textContent.includes('Seleziona')) {
+      opt.textContent = t.entitySelect;
+    }
+    if (opt.textContent.includes('Alan') || opt.textContent.includes('field') || opt.textContent.includes('campo')) {
+      opt.textContent = t.fieldSelect;
+    }
+  });
+
+  // Textarea placeholder'ları
+  const sticky = document.getElementById('sticky-text');
+  if (sticky) sticky.placeholder = t.notePlaceholder;
+
+  // noData mesajı güncelle (eğer görünüyorsa)
+  const emptyState = document.querySelector('#data-entities .empty-state div:not(.empty-icon)');
+  if (emptyState) emptyState.textContent = t.noData;
+
+  // Widget dil güncelleme — sendToContent ile ilet
+  try {
+    sendToContent({ type: 'AHTAPOT_SET_LANG', lang, strings: {
+      wakeLockOn: t.wWakeLockOn, wakeLockOff: t.wWakeLockOff,
+      note: t.wNote, notePlaceholder: t.wNotePlaceholder,
+      addNote: t.wAddNote, reports: t.wReports,
+      run: t.wRun, noTemplate: t.wNoTemplate,
+      noTemplateHint: t.wNoTemplateHint, loading: t.wLoading,
+    }});
+  } catch(e) {}
 
   // Aktif dil göster
   const activeLangEl = document.getElementById('settings-active-lang');
@@ -1005,6 +1159,7 @@ function getBlockMappings() {
 }
 
 
+// ─── HTML RAPOR OLUŞTURUCU ─────────────────────────────────
 // ─── HTML RAPOR OLUŞTURUCU ─────────────────────────────────
 // Şablonu okuyup birebir HTML'e çevirir
 async function buildHtmlReport(headerRecord, blockData, templateName, templateBuffer) {
@@ -1313,10 +1468,16 @@ async function buildHtmlReport(headerRecord, blockData, templateName, templateBu
 </head>
 <body>
 <div class="no-print">
-  <button onclick="window.print()" style="padding:7px 18px;background:#6B2D8B;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">
+  <button onclick="(function(){try{window.print()}catch(e){document.querySelector('body').style.display='block';window.print()}})()" style="padding:7px 18px;background:#6B2D8B;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">
     🖨️ PDF Olarak Kaydet
   </button>
 </div>
+<script>
+  // Sayfa yüklenince otomatik print diyaloğunu aç
+  window.addEventListener('load', function() {
+    setTimeout(function() { try { window.print(); } catch(e) {} }, 600);
+  });
+</script>
 ${tableHtml}
 <div class="footer">
   <span>🐙 Ahtapot — ERP Toolkit</span>
@@ -1365,8 +1526,18 @@ function buildHtmlReportFallback(headerRecord, blockData, templateName) {
   </body></html>`;
 }
 
+
 // ─── INIT ─────────────────────────────────────────────────
 (async () => {
+  // DOM hazır olana kadar bekle
+  await new Promise(resolve => {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', resolve);
+    } else {
+      resolve();
+    }
+  });
+
   try { await detectPage(); } catch(e) { console.warn('detectPage:', e); }
   try { await refreshCache(); } catch(e) { console.warn('refreshCache:', e); }
   try { await renderTemplateList(); } catch(e) { console.warn('renderTemplateList:', e); }

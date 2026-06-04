@@ -6,7 +6,7 @@
 
 ## P0 — Kritik
 
-- [ ] **F-01** · Popup kaynak dosyaları ↔ `popup-bundle.js` senkronu kur · → [PROJECT_FEATURES.md §5 F-01](./PROJECT_FEATURES.md)
+- [x] **F-01** · Popup kaynak dosyaları ↔ `popup-bundle.js` senkronu kur · → [PROJECT_FEATURES.md §5 F-01](./PROJECT_FEATURES.md)
 - [ ] **F-03** · `isSystemEntity` filtre listesini ortak modüle çıkar · → [PROJECT_FEATURES.md §5 F-03](./PROJECT_FEATURES.md)
 - [ ] **F-02** · `background.js` cache write race condition'ı serialize et · → [PROJECT_FEATURES.md §5 F-02](./PROJECT_FEATURES.md)
 
@@ -37,5 +37,4 @@
 
 Her madde tamamlandığında buraya tek satırlık özet düşülür:
 
-<!-- örnek: -->
-<!-- - F-01 ✅ (2026-06-04, dev@abc1234) — popup.html artık 3 ayrı script tag yüklüyor, popup-bundle.js silindi -->
+- **F-01** ✅ (2026-06-04, dev) — Bundle'da kaynaklara yansımamış 169 satır kod tespit edildi; bundle separator'larından 3 parçaya bölünüp `xlsxwriter.js` / `report-engine.js` / `popup.js` üzerine yazıldı. `popup-bundle.js` silindi, `popup.html` artık 3 ayrı `<script>` tag'iyle yüklüyor (sıra: xlsxwriter → report-engine → popup). README dosya listesi güncellendi.

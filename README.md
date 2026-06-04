@@ -103,7 +103,6 @@ ahtapot/
 ├── widget.js            # MAIN world — floating widget
 ├── popup.html           # Extension popup UI
 ├── popup.js             # Popup logic
-├── popup-bundle.js      # Bundled report engine + popup
 ├── report-engine.js     # Excel template engine
 ├── xlsxwriter.js        # Pure-JS XLSX writer
 ├── content.css          # Content script styles

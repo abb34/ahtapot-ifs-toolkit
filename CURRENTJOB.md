@@ -5,86 +5,111 @@
 
 ---
 
-## Şu Anda: **F-01 · Popup kaynak ↔ `popup-bundle.js` senkronu**
+## Şu Anda: **F-03 · Ortak filtre modülü (`isSystemEntity` dedup)**
 
 | Alan | Değer |
 |------|-------|
-| **Atıf** | [PROJECT_FEATURES.md §5 F-01](./PROJECT_FEATURES.md), [TODO.md](./TODO.md) |
-| **Öncelik** | P0 (önkoşul — diğer fix'ler buna bağlı) |
+| **Atıf** | [PROJECT_FEATURES.md §5 F-03](./PROJECT_FEATURES.md), [TODO.md](./TODO.md) |
+| **Öncelik** | P0 |
 | **Branch** | `dev` |
 | **Açılış tarihi** | 2026-06-04 |
 
-### Niye bu görev önce?
+### Niye bu görev sırada?
 
-`popup.html` runtime'da yalnızca `popup-bundle.js`'i (115 KB) yükler. Repo'da `popup.js` (73 KB), `report-engine.js` (24 KB) ve `xlsxwriter.js` (8 KB) ayrı dosyalar olarak da durur. **Bundle bu üç dosyanın manuel concat edilmiş hali.**
+Şu anda **aynı amaca hizmet eden iki ayrı filtre listesi** var:
 
-Sonuç:
+- `popup.js:9-34` → `SYSTEM_ENTITY_PATTERNS`, `SYSTEM_SERVICES`, `isSystemEntity()`
+- `injector.js:13-32` → `SKIP_SERVICES`, `SKIP_ENTITY`, `shouldSkip()`
 
-- Kaynak dosyalarda yapılan herhangi bir düzeltme `popup-bundle.js` yeniden üretilmezse **runtime'da hiçbir etki yaratmaz**.
-- Bundan sonraki F-02…F-09 fix'lerinin birçoğu (özellikle `popup.js`'i etkileyenler) bu sorun çözülmeden test edilemez.
-- Drift sessizce ilerler: bundle'a girmemiş bir fix bug raporuyla geri gelebilir.
+Listeler farklı isimli, farklı sayıda madde içeriyor ve bağımsız evrim geçiriyorlar. Yeni bir sistem entity'sini (`UserSettings`, `BrandingSet` vb.) eklemek istediğimde iki yere de eklemeyi unutursam, popup gösterirken injector yakalıyor — ya da tersi. F-01'den sonra (kaynak tek hakikat) bu dedup'un anlamı var; F-01 öncesi bundle drift'i zaten her şeyi maskeliyordu.
 
-Yani bu görev, döngünün gerçek bir önkoşulu.
+Bonus: `background.js`'de de `SKIP_FIELDS`, `isBadField()`, `cleanRecord()`, `cleanFields()` var. Bunlar farklı amaç (record sanitization) ama yine de "filtre" sınıfı; ortak modülde toplamak gelecekteki F-04 (`@odata.*` strip) için zemini hazırlar.
 
-### İki olası çözüm
+### Çözüm
 
-**A) `popup-bundle.js`'i sil, `popup.html` 3 ayrı script yüklesin.**
-- Artıları: Build script yok; basit, tek seferlik bir değişiklik; popup MV3'te `localhost` indirme/CSP sorunu yaratmaz; debugger'da kaynak dosya doğrudan görünür.
-- Eksileri: Her popup açılışında 3 ağ isteği yerine 1; pratikte ölçülemez fark.
+Yeni dosya: **`shared-filters.js`** (kökte, alt dizin yaratmadan — manifest yollarını basit tutmak için).
 
-**B) Küçük bir `scripts/build-popup.js` ile concat'i otomatikleştir, pre-commit hook'la zorla.**
-- Artıları: Tek dosya kalır, popup açılış HTTP istek sayısı 1.
-- Eksileri: Node bağımlılığı (şu an repo'da yok); kullanıcı/danışman repo'yu klonlayıp el yüklediğinde build adımını çalıştırması gerekir; hook setup zorunlu.
+İçeriği iki bağımsız blokta organize edilecek:
 
-**Seçim (öneri):** **A.** Bu projede performans birinci öncelik değil, sade tooling birinci öncelik. Üç ayrı `<script>` tag yeterli ve gelecekteki tüm fix'leri tek dosya değişikliğine indirir.
+```js
+// === ENTITY FILTRESİ (popup + injector ortak kullanır) ===
+window.AHTAPOT_FILTERS = window.AHTAPOT_FILTERS || {};
+window.AHTAPOT_FILTERS.SYSTEM_SERVICES = new Set([...]);
+window.AHTAPOT_FILTERS.SYSTEM_ENTITY_PATTERNS = [...];
+window.AHTAPOT_FILTERS.isSystemEntity = function(entity, service) {...};
 
-> ⚠️ Implementasyona geçmeden önce kullanıcı bu seçimi onaylamalı.
+// === RECORD SANITIZATION (background + report-engine ortak kullanır) ===
+window.AHTAPOT_FILTERS.SKIP_FIELDS = new Set([...]);
+window.AHTAPOT_FILTERS.isBadField = function(k) {...};
+window.AHTAPOT_FILTERS.cleanRecord = function(r) {...};
+window.AHTAPOT_FILTERS.cleanFields = function(record) {...};
+```
 
-### Adımlar (Seçim A için)
+`window.AHTAPOT_FILTERS` namespace kullanılmasının sebebi: MAIN world'de global çakışmadan kaçınmak (IFS uygulamasının kendi globals'ına dokunmamak).
 
-1. `popup.html` → sondaki `<script src="popup-bundle.js"></script>` satırı kaldırılır, yerine sırasıyla:
+### Yükleme stratejisi (üç runtime'da farklı)
+
+1. **Popup** → `popup.html`'in head/body'sine yeni script tag eklenir:
    ```html
+   <script src="shared-filters.js"></script>   <!-- diğerlerinden önce -->
    <script src="xlsxwriter.js"></script>
    <script src="report-engine.js"></script>
    <script src="popup.js"></script>
    ```
-   yüklenir. **Sıra önemli:** `report-engine.js` `window.XLSXWriter`'a, `popup.js` ise `window.IFSReportEngine` ve `window.XLSXWriter`'a bağımlı.
 
-2. `popup-bundle.js` repo'dan silinir.
+2. **Background service worker** → `background.js`'in en üstüne:
+   ```js
+   importScripts('shared-filters.js');
+   ```
+   MV3 service worker'da `importScripts()` yasal; kullanım yerinde, async değil.
 
-3. Üç dosyanın tarayıcıda yüklenme sırasına göre çalıştığı manuel doğrulanır:
-   - Chrome'da `chrome://extensions/` → Ahtapot → "Reload"
-   - Popup açılır, console error yok.
-   - "Rapor" tabında bir entity seçilir, "Örnek İndir" butonu çalışır (XLSXWriter erişilebilir).
-   - Bir IFS sayfasında yakalanan bir entity ile "Excel İndir" denenir (ReportEngine zinciri).
-
-4. Değişiklik `dev` branch'ine commit edilir: tek commit, mesaj kısa.
-
-5. `TODO.md` güncellenir: `[ ] F-01` → `[x] F-01 (dev@<sha>)`, "İlerleme Kayıtları"na tek satır eklenir.
-
-6. `CURRENTJOB.md` bir sonraki TODO maddesine (F-03 — filtre listesi dedup) güncellenir.
+3. **Injector (MAIN world)** → `manifest.json`'da content_scripts array'i:
+   ```jsonc
+   {
+     "matches": ["*://*/*"],
+     "js": ["shared-filters.js", "injector.js"],   // sıralı yüklenir, ikisi de MAIN world
+     "run_at": "document_start",
+     "world": "MAIN"
+   }
+   ```
+   **Not:** content.js (ISOLATED world) bu dosyaya erişmeyecek — orada `isSystemEntity` ihtiyacı yok. widget.js de kullanmıyor. Sadece MAIN'e enjekte.
 
 ### Etkilenecek dosyalar
 
-- `popup.html` (1 satır değişir + 3 satır eklenir)
-- `popup-bundle.js` (silinir)
-- `TODO.md` (madde kapatma + ilerleme satırı)
-- `CURRENTJOB.md` (sonraki göreve geçer)
+- `shared-filters.js` (yeni)
+- `manifest.json` (injector content script block güncellenir; **host_permissions ve diğerleri değişmez** → CWS yüzeyi büyümüyor)
+- `popup.html` (1 yeni script tag, en başa)
+- `popup.js` (lines 9-40 silinir, çağrılar `window.AHTAPOT_FILTERS.isSystemEntity()` olur)
+- `injector.js` (lines 13-39 silinir, `shouldSkip` `window.AHTAPOT_FILTERS.isSystemEntity` ile değiştirilir — adlandırma uyumu için wrapper kalabilir)
+- `background.js` (lines 163-187 silinir, en üste `importScripts('shared-filters.js')`)
+
+### CWS uyumluluğu
+
+Bu görev CWS açısından **sıfır risk**:
+- Yeni `host_permissions` yok, mevcutla aynı (`*://*/*`).
+- Yeni `permissions` yok.
+- Yeni external script/CDN yok — sadece extension içi dosya.
+- `eval`/`new Function` yok.
+- Inline event handler yok.
+- `importScripts` MV3 service worker için **resmi olarak destekleniyor**.
 
 ### Done criteria
 
-- [ ] `popup-bundle.js` repo'da yok.
-- [ ] `popup.html` üç ayrı `<script>` tag'iyle yüklüyor (xlsxwriter → report-engine → popup).
-- [ ] Eklenti `chrome://extensions/` üzerinden "Load unpacked" ile yüklendiğinde popup hatasız açılıyor.
-- [ ] "Örnek İndir" buton akışı çalışıyor (XLSXWriter zinciri).
-- [ ] Mevcut bir IFS şablonuyla "Excel İndir" çalışıyor (ReportEngine zinciri).
-- [ ] `dev` branch'ine commit'lendi.
+- [ ] `shared-filters.js` oluşturuldu, içinde tüm entity + sanitize fonksiyonları.
+- [ ] `popup.html` script tag sırası: shared-filters → xlsxwriter → report-engine → popup.
+- [ ] `popup.js`'te eski liste/fonksiyon kaldı (alias değil, gerçekten silindi); çağrılar `window.AHTAPOT_FILTERS.*` üzerinden.
+- [ ] `injector.js`'te eski liste kaldı, çağrılar `window.AHTAPOT_FILTERS.isSystemEntity` üzerinden.
+- [ ] `manifest.json` MAIN world content script `["shared-filters.js", "injector.js"]` olarak güncellendi.
+- [ ] `background.js` en üstte `importScripts('shared-filters.js')`, eski SKIP_FIELDS/cleanRecord/cleanFields silindi, çağrılar `globalThis.AHTAPOT_FILTERS.*` üzerinden (service worker için `globalThis`).
+- [ ] Eklenti Chrome'a yüklenir, popup açılır, console error yok.
+- [ ] Bir IFS sayfasında entity yakalama akışı çalışıyor (regresyon yok).
+- [ ] `dev` branch'e tek commit.
 - [ ] `TODO.md` ve `CURRENTJOB.md` güncellendi.
 
 ### Test notu (manuel)
 
-Manuel doğrulama yapacak kişi (danışman): Bir IFS Cloud sayfası açın (`*.ifs.cloud`), bir Purchase Order kaydı görüntüleyin, eklenti popup'ında en az bir entity yakalandığını doğrulayın, sonra "Excel İndir" ile basit bir şablonla rapor üretin. Hata yoksa kabul.
+Danışman: Chrome'da extension'ı yeniden yükle → popup aç → "Henüz veri yok" hatasız → bir IFS sayfasında PO açar → eklenti popup'ı entity yakaladığını gösterir → "Excel İndir" sorunsuz çalışır. Console'da `AHTAPOT_FILTERS is not defined` veya benzeri hata olmamalı.
 
 ---
 
-*Bu dosya, görev tamamlandığında bir sonraki TODO maddesinin içeriğiyle değiştirilir.*
+*Bu dosya, görev tamamlandığında bir sonraki TODO maddesinin (F-02 — cache write race) içeriğiyle değiştirilir.*
