@@ -375,58 +375,155 @@ async function renderTemplateList(templates) {
   });
 }
 
-// Örnek şablon indir
-document.getElementById('btn-download-sample').addEventListener('click', async () => {
-  if (!cacheData.length) {
+// F-16: Örnek şablon — entity seçim modalı aç
+document.getElementById('btn-download-sample').addEventListener('click', () => {
+  openSampleTemplateModal();
+});
+
+// F-16: Sayfada erişilebilen tüm entity'leri (cache + DOM keşfi) tek listede topla.
+// displayName varsa "Görünür İsim — EntitySet" formatında.
+function getAvailableEntitiesForSample() {
+  const isSys = (e) => window.AHTAPOT_FILTERS
+    ? window.AHTAPOT_FILTERS.isSystemEntity(e.entity, e.service)
+    : isSystemEntity(e.entity, e.service);
+  const cached = cacheData.filter(e => !isSys(e)).map(e => ({
+    entity: e.entity,
+    displayName: e.displayName,
+    recordCount: e.recordCount,
+    source: 'cache'
+  }));
+  const discovered = (discoveredEntities || [])
+    .filter(d => !cached.find(c => c.entity === d.entity))
+    .map(d => ({ entity: d.entity, displayName: d.displayName, source: 'page' }));
+  return [...cached, ...discovered];
+}
+
+function entityLabel(e) {
+  let label = e.displayName ? e.displayName + ' — ' + e.entity : e.entity;
+  if (e.source === 'cache' && typeof e.recordCount === 'number') label += ' (' + e.recordCount + ' kayıt)';
+  else if (e.source === 'page') label += ' (sayfada)';
+  return label;
+}
+
+function openSampleTemplateModal() {
+  const all = getAvailableEntitiesForSample();
+  if (!all.length) {
     showToast('Önce ERP sayfasında bir kayıt açın', 'error');
     return;
   }
 
-  // Seçili entity'leri al (rapor ile aynı mantık)
-  const headerEntityName = document.getElementById('header-entity-select').value;
-  const blockMappings = getBlockMappings();
+  // Header dropdown'ı doldur
+  const headerSel = document.getElementById('sample-header-pick');
+  headerSel.innerHTML = '<option value="">-- Header entity seç --</option>';
+  all.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.entity;
+    opt.textContent = entityLabel(e);
+    headerSel.appendChild(opt);
+  });
+  // Otomatik: line/part/row içermeyen ilk entity'i header öner
+  const autoHeader = all.find(e => !/(line|part|row|detail|approv)/i.test(e.entity)) || all[0];
+  if (autoHeader) headerSel.value = autoHeader.entity;
 
-  // Hangi entity'lerin şablona gireceğini belirle
-  const selectedNames = [headerEntityName, ...blockMappings.map(m => m.entity)].filter(Boolean);
+  // Blok listesini sıfırla, 1 default satır ekle (LINES)
+  document.getElementById('sample-block-list').innerHTML = '';
+  addSampleBlockRow('LINES');
 
-  // Seçim yapılmamışsa tüm iş entity'lerini kullan
-  const entitiesToUse = selectedNames.length
-    ? cacheData.filter(e => selectedNames.includes(e.entity))
-    : cacheData.filter(e => !isSystemEntity(e.entity, e.service));
+  document.getElementById('sample-modal').style.display = 'flex';
+}
 
-  if (!entitiesToUse.length) {
-    showToast('Header entity seçin', 'error');
-    return;
-  }
+function closeSampleTemplateModal() {
+  document.getElementById('sample-modal').style.display = 'none';
+}
+
+function addSampleBlockRow(defaultName = '') {
+  const list = document.getElementById('sample-block-list');
+  const all = getAvailableEntitiesForSample();
+  const row = document.createElement('div');
+  row.className = 'sample-block-row';
+  row.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;align-items:flex-start';
+  row.innerHTML = '<div style="flex:1">'
+    + '<div style="font-size:10px;color:var(--muted);margin-bottom:3px">Blok Adı</div>'
+    + '<input type="text" class="sample-block-name" value="' + defaultName + '" placeholder="LINES" '
+    + 'style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;font-size:11px;font-family:monospace">'
+    + '</div>'
+    + '<div style="flex:2">'
+    + '<div style="font-size:10px;color:var(--muted);margin-bottom:3px">Entity</div>'
+    + '<select class="sample-block-entity" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;font-size:11px">'
+    + '<option value="">-- Entity seç --</option>'
+    + '</select>'
+    + '</div>'
+    + '<button class="sample-block-remove" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 2px;margin-top:14px" title="Kaldır">×</button>';
+  list.appendChild(row);
+
+  const sel = row.querySelector('.sample-block-entity');
+  all.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.entity;
+    opt.textContent = entityLabel(e);
+    sel.appendChild(opt);
+  });
+
+  row.querySelector('.sample-block-remove').addEventListener('click', () => row.remove());
+}
+
+document.getElementById('sample-add-block').addEventListener('click', () => {
+  const list = document.getElementById('sample-block-list');
+  addSampleBlockRow('BLOCK' + (list.children.length + 1));
+});
+
+document.getElementById('sample-cancel').addEventListener('click', closeSampleTemplateModal);
+
+document.getElementById('sample-modal').addEventListener('click', (e) => {
+  // Dışına tıklanınca kapat
+  if (e.target.id === 'sample-modal') closeSampleTemplateModal();
+});
+
+document.getElementById('sample-download').addEventListener('click', async () => {
+  const headerEntity = document.getElementById('sample-header-pick').value;
+  if (!headerEntity) { showToast('Header entity seçin', 'error'); return; }
+
+  const blocks = [];
+  document.querySelectorAll('#sample-block-list .sample-block-row').forEach(row => {
+    const name = row.querySelector('.sample-block-name')?.value?.trim();
+    const entity = row.querySelector('.sample-block-entity')?.value;
+    if (name && entity) blocks.push({ name, entity });
+  });
 
   try {
     await waitForExcelJS();
-    if (!window.IFSReportEngine) throw new Error('Report engine yuklenemedi');
-    if (!window.XLSXWriter) throw new Error('XLSX writer yuklenemedi');
+    if (!window.IFSReportEngine) throw new Error('Report engine yüklenemedi');
+    if (!window.XLSXWriter) throw new Error('XLSX writer yüklenemedi');
+
+    // Tüm seçilenler için cache'ten field/sample data çek (varsa)
+    async function buildSummary(entity, blockName) {
+      const resp = await sendMsg({ type: 'GET_ENTITY_DATA', entity });
+      const records = resp?.ok ? (resp.records || []) : [];
+      const cached = cacheData.find(c => c.entity === entity);
+      const discovered = (discoveredEntities || []).find(d => d.entity === entity);
+      return {
+        entity,
+        service: cached?.service || 'Unknown',
+        fields: records.length ? Object.keys(records[0]) : (cached?.fields || []),
+        sampleRecord: records[0] || null,
+        records,
+        displayName: cached?.displayName || discovered?.displayName || null,
+        blockName: blockName || null,
+        isHeader: !blockName
+      };
+    }
 
     const enriched = [];
-    for (const e of entitiesToUse) {
-      const resp = await sendMsg({ type: 'GET_ENTITY_DATA', entity: e.entity });
-      const records = resp?.ok ? (resp.records || []) : [];
-      const fields = records.length > 0 ? Object.keys(records[0]) : (e.fields || []);
-      // Blok adını bul
-      const blockMapping = blockMappings.find(m => m.entity === e.entity);
-      enriched.push({
-        entity: e.entity,
-        service: e.service,
-        fields,
-        sampleRecord: records.length ? records[0] : null,
-        records,
-        blockName: blockMapping ? blockMapping.name : (e.entity === headerEntityName ? null : 'LINES'),
-        isHeader: e.entity === headerEntityName,
-      });
+    enriched.push(await buildSummary(headerEntity, null));
+    for (const b of blocks) {
+      enriched.push(await buildSummary(b.entity, b.name));
     }
 
     const buffer = await window.IFSReportEngine.generateSampleTemplate(enriched);
-    const name = headerEntityName || entitiesToUse[0]?.service || 'IFS';
-    downloadBlob(buffer, name + '-sablon.xlsx');
-    addLog('Örnek şablon indirildi: ' + name, 'ok');
+    downloadBlob(buffer, headerEntity + '-sablon.xlsx');
+    addLog('Örnek şablon indirildi: ' + headerEntity + ' + ' + blocks.length + ' blok', 'ok');
     showToast('📄 Örnek şablon indirildi!');
+    closeSampleTemplateModal();
   } catch (err) {
     addLog('Şablon hatası: ' + err.message, 'err');
     showToast('Hata: ' + err.message, 'error');

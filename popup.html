@@ -455,6 +455,32 @@ body{width:500px;min-height:600px;background:var(--bg);color:var(--text);font-fa
 
 <div id="toast"></div>
 
+<!-- F-16: Örnek şablon entity seçim modalı -->
+<div id="sample-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;width:92%;max-width:460px;max-height:85vh;overflow-y:auto">
+    <h3 style="font-size:14px;font-weight:600;margin-bottom:6px;color:var(--text)">📄 Örnek Şablon</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.5">
+      Şablona dahil edilecek entity'leri seç. Sayfada yakalanmış veya keşfedilmiş entity'ler dropdown'larda görünür.
+    </div>
+
+    <div class="section-label" style="margin-bottom:6px">📑 Header (Ana Kayıt)</div>
+    <select id="sample-header-pick" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 9px;font-size:12px;margin-bottom:14px">
+      <option value="">-- Header entity seç --</option>
+    </select>
+
+    <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span>📋 Satır Blokları</span>
+      <button id="sample-add-block" class="btn" style="font-size:10px;padding:3px 8px;background:rgba(155,77,200,.15);border:1px solid #9B4DC8;color:#9B4DC8">+ Blok Ekle</button>
+    </div>
+    <div id="sample-block-list" style="margin-bottom:14px"></div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="sample-cancel" class="btn btn-ghost" style="font-size:11px;padding:6px 12px">İptal</button>
+      <button id="sample-download" class="btn btn-accent" style="font-size:11px;padding:6px 12px">📄 İndir</button>
+    </div>
+  </div>
+</div>
+
 <script src="xlsxwriter.js"></script>
 <script src="report-engine.js"></script>
 <script src="popup.js"></script>

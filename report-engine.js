@@ -512,64 +512,87 @@ const ReportEngine = (() => {
   }
 
   // ── Örnek şablon ────────────────────────────────────────
+  // F-16: çoklu blok desteği. entitySummaries:
+  //   [{ entity, fields, sampleRecord, records, blockName, isHeader, displayName }, ...]
+  //   - isHeader: true → ana kayıt
+  //   - blockName: string → satır bloğu (LINES, APPROVALS, ...)
+  // Eski signature (isHeader/blockName olmadan) için fallback: ilk non-line header, geri kalan tek "LINES" bloğu.
   async function generateSampleTemplate(entitySummaries) {
     function isMeta(f) {
       if (META.has(f)) return true;
       if (f.startsWith('@')) return true;
-      if (f.includes('@')) return true;          // AddrFlag@odata.type gibi
+      if (f.includes('@')) return true;
       if (f.includes('_aggr_')) return true;
       if (f.endsWith('navigationLink')) return true;
       if (f.endsWith('@odata.type')) return true;
       return false;
     }
 
-    const mainEnt = entitySummaries.find(e =>
-      !e.entity.toLowerCase().includes('line') &&
-      !e.entity.toLowerCase().includes('row') &&
-      !e.entity.toLowerCase().includes('part')
-    ) || entitySummaries[0];
+    // Header + bloklar belirle (yeni signature varsa onu kullan)
+    let header = entitySummaries.find(e => e.isHeader);
+    let blockEntries = entitySummaries
+      .filter(e => !e.isHeader && e.blockName)
+      .map(e => ({ blockName: e.blockName, ent: e }));
 
-    const lineEnt = entitySummaries.find(e => e !== mainEnt);
+    // Geriye uyumluluk: eski signature
+    if (!header && !blockEntries.length) {
+      header = entitySummaries.find(e =>
+        !e.entity.toLowerCase().includes('line') &&
+        !e.entity.toLowerCase().includes('row') &&
+        !e.entity.toLowerCase().includes('part')
+      ) || entitySummaries[0];
+      const line = entitySummaries.find(e => e !== header);
+      if (line) blockEntries = [{ blockName: 'LINES', ent: line }];
+    }
 
-    const hFields = mainEnt ? (mainEnt.fields||[]).filter(f=>!isMeta(f)) : [];
-    const lFields = lineEnt ? (lineEnt.fields||[]).filter(f=>!isMeta(f)) : [];
-
-    const hdrs = ['Alan Adı','Şablon Etiketi','Örnek Değer','Açıklama'];
+    const hdrs = ['Alan Adı', 'Şablon Etiketi', 'Örnek Değer', 'Açıklama'];
     const rows = [];
 
-    rows.push(['─── SİSTEM ───','','','Otomatik doldurulur']);
-    rows.push(['Bugün','{{TODAY}}', new Date().toLocaleDateString('tr-TR'),'Rapor tarihi']);
-    rows.push(['Şu An','{{NOW}}',   new Date().toLocaleString('tr-TR'),'Rapor zamanı']);
-    rows.push(['Ortam','{{ENV}}',   typeof window!=='undefined'?window.location.hostname:'','ERP ortamı']);
-    rows.push(['','','','']);
+    rows.push(['─── SİSTEM ───', '', '', 'Otomatik doldurulur']);
+    rows.push(['Bugün', '{{TODAY}}', new Date().toLocaleDateString('tr-TR'), 'Rapor tarihi']);
+    rows.push(['Şu An', '{{NOW}}', new Date().toLocaleString('tr-TR'), 'Rapor zamanı']);
+    rows.push(['Ortam', '{{ENV}}', typeof window !== 'undefined' ? window.location.hostname : '', 'ERP ortamı']);
+    rows.push(['', '', '', '']);
 
-    if (mainEnt && hFields.length) {
-      rows.push(['─── '+mainEnt.entity+' (HEADER) ───','','','Ana kayıt alanları']);
-      hFields.forEach(f => {
-        const v = mainEnt.sampleRecord ? mainEnt.sampleRecord[f] : '';
-        rows.push([f, '{{'+f+'}}', v==null?'':String(v), '']);
-      });
-      rows.push(['','','','']);
+    if (header) {
+      const hFields = (header.fields || []).filter(f => !isMeta(f));
+      const label = header.displayName ? header.displayName + ' — ' + header.entity : header.entity;
+      rows.push(['─── ' + label + ' (HEADER) ───', '', '', 'Ana kayıt alanları']);
+      if (hFields.length) {
+        hFields.forEach(f => {
+          const v = header.sampleRecord ? header.sampleRecord[f] : '';
+          rows.push([f, '{{' + f + '}}', v == null ? '' : String(v), '']);
+        });
+      } else {
+        rows.push(['(Sayfada henüz yakalanmamış)', '', '', 'Excel İndir bastığında auto-fetch ile dolacak']);
+      }
+      rows.push(['', '', '', '']);
     }
 
-    if (lineEnt && lFields.length) {
-      rows.push(['─── '+lineEnt.entity+' (SATIRLAR) ───','','','Satır bloğu']);
-      rows.push(['BLOK BAŞI','{{#LINES}}','','Bu satır satır bloğunun başlangıcını işaretler']);
-      lFields.forEach(f => {
-        const v = lineEnt.records&&lineEnt.records[0] ? lineEnt.records[0][f] : '';
-        rows.push([f, '{{'+f+'}}', v==null?'':String(v), '']);
-      });
-      rows.push(['BLOK SONU','{{/LINES}}','','Bu satır satır bloğunun bitişini işaretler']);
-      rows.push(['','','','']);
-    }
+    blockEntries.forEach(({ blockName, ent }) => {
+      const lFields = (ent.fields || []).filter(f => !isMeta(f));
+      const label = ent.displayName ? ent.displayName + ' — ' + ent.entity : ent.entity;
+      rows.push(['─── ' + label + ' (BLOK: ' + blockName + ') ───', '', '', 'Satır bloğu']);
+      rows.push(['BLOK BAŞI', '{{#' + blockName + '}}', '', 'Bu satır blok başlangıcını işaretler']);
+      if (lFields.length) {
+        lFields.forEach(f => {
+          const v = ent.records && ent.records[0] ? ent.records[0][f] : '';
+          rows.push([f, '{{' + f + '}}', v == null ? '' : String(v), '']);
+        });
+      } else {
+        rows.push(['(Sayfada henüz yakalanmamış)', '', '', 'Excel İndir bastığında auto-fetch ile dolacak']);
+      }
+      rows.push(['BLOK SONU', '{{/' + blockName + '}}', '', 'Bu satır blok bitişini işaretler']);
+      rows.push(['', '', '', '']);
+    });
 
-    rows.push(['── KULLANIM ──','','','']);
-    rows.push(['1. Bu dosyayı Excel\'de açın ve yeni bir sekme ekleyin','','','']);
-    rows.push(['2. Şablon Etiketi sütunundaki {{...}} ifadelerini','','','']);
-    rows.push(['   raporunuzda istediğiniz hücrelere yerleştirin','','','']);
-    rows.push(['3. BLOK BAŞI ve BLOK SONU etiketleri satır tablosu için','','','']);
-    rows.push(['   tablo şablonunuzun üstüne ve altına koyun','','','']);
-    rows.push(['4. Dosyayı kaydedin ve Şablon Yükle ile yükleyin','','','']);
+    rows.push(['── KULLANIM ──', '', '', '']);
+    rows.push(['1. Bu dosyayı Excel\'de açın ve yeni bir sekme ekleyin', '', '', '']);
+    rows.push(['2. Şablon Etiketi sütunundaki {{...}} ifadelerini', '', '', '']);
+    rows.push(['   raporunuzda istediğiniz hücrelere yerleştirin', '', '', '']);
+    rows.push(['3. BLOK BAŞI ve BLOK SONU etiketleri satır tablosu için', '', '', '']);
+    rows.push(['   tablo şablonunuzun üstüne ve altına koyun', '', '', '']);
+    rows.push(['4. Dosyayı kaydedin ve Şablon Yükle ile yükleyin', '', '', '']);
 
     return window.XLSXWriter.write(hdrs, rows);
   }
