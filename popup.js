@@ -513,6 +513,31 @@ document.getElementById('sample-download').addEventListener('click', async () =>
     if (!window.IFSReportEngine) throw new Error('Report engine yüklenemedi');
     if (!window.XLSXWriter) throw new Error('XLSX writer yüklenemedi');
 
+    // F-16 Faz 2: Örnek İndir öncesi seçilen blok entity'leri için auto-fetch.
+    // Header zaten cache'te olmalı (kullanıcı bir kayıt açtı), ama blok'lar
+    // (nav-prop, function, EntitySet) henüz cache'te olmayabilir → fetch et,
+    // field listesi ve sample değer çekilebilsin, generateSampleTemplate dolu
+    // şablon üretsin ("Sayfada henüz yakalanmamış" yerine).
+    const missing = blocks
+      .filter(b => !cacheData.find(c => c.entity === b.entity && !c.stale))
+      .map(b => b.entity);
+    if (missing.length) {
+      addLog(`Örnek için auto-fetch: ${missing.length} entity`, 'info');
+      for (const e of missing) {
+        const fr = await sendMsg({
+          type: 'FETCH_ENTITY_FOR_BLOCK',
+          headerEntity,
+          targetEntity: e
+        });
+        if (fr?.ok) {
+          addLog(`✓ ${e}: ${fr.recordCount} kayıt`, 'ok');
+        } else {
+          addLog(`✗ ${e}: ${fr?.error || 'fetch hatası'}`, 'err');
+        }
+      }
+      await refreshCache();
+    }
+
     // Tüm seçilenler için cache'ten field/sample data çek (varsa)
     async function buildSummary(entity, blockName) {
       const resp = await sendMsg({ type: 'GET_ENTITY_DATA', entity });
