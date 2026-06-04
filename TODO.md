@@ -36,6 +36,7 @@
 - [ ] **F-10** · `manifest.json` `host_permissions` daraltılacak · *bu döngüde dokunulmuyor; Chrome Web Store döngüsünde*
 - [ ] **F-11** · `popup.html` Google Fonts CDN bağlantısı kaldırılacak · *bu döngüde dokunulmuyor; Chrome Web Store döngüsünde*
 - [ ] **F-12** · Widget "Hızlı Rapor" akışını çalışır hale getir (`chrome.downloads` + content.js köprüsü) · *pre-existing bug; F-01 ile keşfedildi; CWS döngüsünde* · → [PROJECT_FEATURES.md §5 F-12](./PROJECT_FEATURES.md)
+- [ ] **F-18** · Translation API ile tüm entity'lerin display name'leri · *Faz 1.11b: kullanıcı tıklayınca öğreniyoruz; tüm Türkçe başlıklar için Translation API intercept veya alternatif. Sonraki döngüye atıldı.* · → [PROJECT_FEATURES.md §5 F-18](./PROJECT_FEATURES.md)
 
 ---
 

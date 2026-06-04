@@ -115,6 +115,14 @@ main  ──── şimdilik dondurulmuştur; ileride prod'a hizalanır veya sil
 - **F-11: `popup.html` Google Fonts CSS yükler.** README'deki "hiçbir veri dışarıya gönderilmez" iddiasıyla çelişir. CWS döngüsünde lokal font veya system stack'e geçilir.
 - **F-12: Widget "Hızlı Rapor" akışı çalışmıyor** (pre-existing — bundle döneminde de bozuktu, F-01 ile keşfedildi). `widget.js:428` MAIN world'de `window.IFSReportEngine` ve `window.XLSXWriter` arar; bunlar yalnızca `popup.html` üzerinden yüklenir, MAIN world'e hiç gelmez. Sonuç: widget'tan "▶ Çalıştır" her zaman "Rapor motoru hazır değil" feedback'i gösterir. En temiz çözüm `chrome.downloads` izni + content.js (ISOLATED world) üzerinden işleme — yeni manifest izni gerektirdiği için F-10/F-11 ile birlikte CWS uyumluluk döngüsünde ele alınacak. **Bu döngüde widget quick-report kullanılmaz; popup'tan Excel İndir alternatifi vardır.**
 
+- **F-18: Translation API ile tüm display name'ler (sonraki döngüye)**
+  Mevcut Faz 1.11b: kullanıcı bir tab'a tıkladığında o entity için Türkçe başlık (aktif tab title) yakalanır. Eksik: kullanıcı hiç tıklamadığı tab'lardaki nav-prop ve function entity'leri için display name boş kalır (sadece entity adı görünür).
+  Test edilen yollar:
+  - `Translations.svc/GetTranslations` Action (POST) → **403 Forbidden** (XSRF token denenmiş, hâlâ erişim yetkisi yok; muhtemelen sadece admin/dev rolüne açık)
+  - DOM scan ile tab panellerini incelemek → Aurena lazy-render nedeniyle kapalı tab DOM'da yok
+  - Heuristic isim eşleştirme (`NoPart`↔"Hizmet", `Rental`↔"Kiralama") → kırılgan, IFS dil değiştiğinde patlar
+  **Sonraki döngüde denenecek:** IFS'in kendi attığı `Translations.svc/GetTranslations` cevabını **intercept etmek** (injector zaten tüm fetch'leri görüyor; Translations.svc skip'i kaldır). Path → Translation cache'lenir; entity adı ↔ path eşleştirmesi için ek heuristic (RequisitionLinePartList ↔ PartRequisitionLines). Bu da çalışmazsa display name özelliği "best effort" olarak kalır.
+
 ### Bu döngüde yeni eklenen (UX / özellik)
 
 - **F-16: Şablon-bazlı entity mapping + Excel İndir'de auto-fetch** (kullanıcı talebi)
