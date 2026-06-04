@@ -386,16 +386,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const discovered = tabCache.__discovered || {};
       const serviceMeta = tabCache.__serviceMeta || {};
 
-      // F-16 Faz 1.8: metadata'dan gelen entity'leri displayName ile birleştir
-      // (DOM keşfi ile çakışma varsa DOM keşfini koru)
-      const metaMap = {};
+      // F-16 Faz 1.9: $metadata sadece display name eşleştirmesi için
+      // (dropdown'a girmiyor). Page descriptor endpoint'i öğrenilince
+      // tekrar değerlendirilecek.
+      const metaDisplayName = {};
       Object.values(serviceMeta).forEach(entitySets => {
         (entitySets || []).forEach(e => {
-          if (!e || !e.entity) return;
-          metaMap[e.entity] = {
-            entity: e.entity,
-            displayName: discovered[e.entity]?.displayName || e.displayName || null
-          };
+          if (e && e.entity && e.displayName) metaDisplayName[e.entity] = e.displayName;
         });
       });
 
@@ -407,21 +404,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           recordCount: data.records.length,
           capturedAt: data.capturedAt,
           stale: data.stale,
-          // F-16: keşif sırasında bulunan display name
-          displayName: discovered[entity]?.displayName || metaMap[entity]?.displayName || null,
+          // F-16: keşif sırasında bulunan display name (DOM önce, metadata yedek)
+          displayName: discovered[entity]?.displayName || metaDisplayName[entity] || null,
           fields: data.records[0] ? cleanFields(data.records[0]) : []
         }));
 
-      // F-16: cache'te olmayan ama sayfada keşfedilmiş VEYA $metadata'dan
-      // öğrenilmiş entity'leri ayrı listede dön. Üç kaynak birleşiktir,
-      // entity adına göre tekilleştirilir.
-      const combined = {};
-      Object.values(discovered).forEach(d => { combined[d.entity] = d; });
-      Object.values(metaMap).forEach(d => {
-        if (!combined[d.entity]) combined[d.entity] = d;
-      });
-      const discoveredOnly = Object.values(combined)
-        .filter(d => !tabCache[d.entity]);
+      // F-16 Faz 1.9: discovered sadece DOM'dan gelenleri içerir
+      // (lookup/LOV gürültüsünü engellemek için $metadata dahil değil).
+      const discoveredOnly = Object.values(discovered)
+        .filter(d => !tabCache[d.entity])
+        .map(d => ({ ...d, displayName: d.displayName || metaDisplayName[d.entity] || null }));
 
       sendResponse({ cache: summary, discovered: discoveredOnly, tabId });
     })();
