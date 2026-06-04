@@ -214,8 +214,6 @@ async function fetchServiceMetadata(tabId, svcBase) {
     while ((m = typeRe.exec(xml)) !== null) {
       const typeName = m[1];
       const body = m[2];
-      // Schema namespace'ini bul (üstteki Schema'dan)
-      // Genelde "IFS" veya "Default" — tam path lazım için entitySetToType'tan tersine bak
       const fqn = Object.values(entitySetToType).find(t => t.endsWith('.' + typeName)) || typeName;
       const navs = [];
       const navRe = /<NavigationProperty\s+Name="([^"]+)"\s+(?:Type="([^"]+)"|[\s\S]*?Type="([^"]+)")[^>]*\/?>/g;
@@ -230,9 +228,31 @@ async function fetchServiceMetadata(tabId, svcBase) {
       if (navs.length) typeNavProps[fqn] = navs;
     }
 
+    // ── 3. Collection döner Function'lar (V4 OData) ──
+    // <Function Name="PurchaseRequisitionLines"><Parameter ... /><ReturnType Type="Collection(...)"/></Function>
+    // Filter: page-relevant Function'ları geç (Get/Is/Allow/Validate/Check/Find/Lookup/Has prefix'leri
+    // ya da name/returnType içinde "Lov" geçenler — lookup'tır, page entity değil).
+    const functions = [];
+    const isLookupName = (name) =>
+      /^(Get|Is|Allow|Validate|Check|Find|Lookup|Has|Fetch|Verify)\w/.test(name) ||
+      /Lov$|Lookup$/.test(name);
+    const isLookupType = (t) => /Lov\b|Lookup\b|\bReference_/.test(t || '');
+
+    const fnRe = /<Function\s+Name="([^"]+)"[^>]*>([\s\S]*?)<\/Function>/g;
+    while ((m = fnRe.exec(xml)) !== null) {
+      const fnName = m[1];
+      const body = m[2];
+      const retMatch = body.match(/<ReturnType\s+Type="Collection\(([^)]+)\)"/);
+      if (!retMatch) continue;
+      const returnType = retMatch[1];
+      if (isLookupName(fnName) || isLookupType(returnType)) continue;
+      functions.push({ name: fnName, returnType });
+    }
+
     console.log('[Ahtapot BG] $metadata:', svcBase.match(/\/([^/]+)\.svc\//)?.[1],
       '→', entitySets.length, 'EntitySet,',
-      Object.keys(typeNavProps).length, 'EntityType (nav-props)');
+      Object.keys(typeNavProps).length, 'EntityType,',
+      functions.length, 'page Function');
 
     const cache = await getCache();
     if (!cache[tabId]) cache[tabId] = {};
@@ -241,7 +261,8 @@ async function fetchServiceMetadata(tabId, svcBase) {
       entitySets,
       entitySetToType,
       typeToEntitySet,
-      typeNavProps
+      typeNavProps,
+      functions
     };
     await setCache(cache);
     chrome.runtime.sendMessage({ type: 'METADATA_LOADED', tabId, count: entitySets.length }).catch(() => {});
@@ -468,7 +489,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       // Her cache'lenmiş entity için: o EntityType'ın Collection nav-prop'larına
       // karşılık gelen EntitySet'leri discovered'a ekle
       summary.forEach(s => {
-        // Hangi service'in metadata'sı? service field'ı service adıdır (örn. "PurchaseRequisitionHandling")
         const svcMeta = Object.values(serviceMeta).find(meta =>
           meta && meta.entitySetToType && meta.entitySetToType[s.entity]
         );
@@ -476,7 +496,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const typeFqn = svcMeta.entitySetToType[s.entity];
         const navs = svcMeta.typeNavProps?.[typeFqn] || [];
         navs.filter(n => n.isCollection).forEach(n => {
-          // Nav-prop'un target EntitySet adı — typeToEntitySet'ten bul
           const targetEntitySet = svcMeta.typeToEntitySet?.[n.targetType] || n.name;
           if (targetEntitySet && !tabCache[targetEntitySet] && !combined[targetEntitySet]) {
             combined[targetEntitySet] = {
@@ -486,6 +505,32 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               source: 'nav-prop',
               parentEntity: s.entity,
               navName: n.name
+            };
+          }
+        });
+      });
+
+      // F-16 Faz 1.10: page-relevant Function'ları da ekle (Onaylama vs.
+      // gibi parametreli function call'larla erişilen child entity'ler).
+      // Her cache'lenmiş service için filter'lı function listesini ekle.
+      const cachedSvcBases = new Set();
+      summary.forEach(s => {
+        Object.entries(serviceMeta).forEach(([svcBase, meta]) => {
+          if (meta && meta.entitySetToType && meta.entitySetToType[s.entity]) {
+            cachedSvcBases.add(svcBase);
+          }
+        });
+      });
+      cachedSvcBases.forEach(svcBase => {
+        const meta = serviceMeta[svcBase];
+        (meta?.functions || []).forEach(fn => {
+          if (!tabCache[fn.name] && !combined[fn.name]) {
+            combined[fn.name] = {
+              entity: fn.name,
+              displayName: metaDisplayName[fn.name] || null,
+              luName: null,
+              source: 'function',
+              returnType: fn.returnType
             };
           }
         });
