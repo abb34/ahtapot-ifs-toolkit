@@ -391,7 +391,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const tabId = sender.tab?.id;
     if (!tabId) return;
 
-    const { entity, service, url, records, key, capturedAt } = msg.payload;
+    const { entity, service, url, records, key, capturedAt, activeTab } = msg.payload;
     if (!entity || !records) return;
 
     (async () => {
@@ -410,6 +410,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         existing.records = [...existing.records, ...newRecs];
       } else {
         cache[tabId][entity] = { records, service, url, key, capturedAt, stale: false };
+      }
+
+      // F-16 Faz 1.11: injector'un yakaladığı aktif tab title'ı entity için
+      // display name (örn. "Malzeme Talep Satırları"). __discovered'a yaz —
+      // popup'taki GET_CACHE bu alanı dropdown'da gösterir.
+      if (activeTab) {
+        cache[tabId].__discovered = cache[tabId].__discovered || {};
+        const prev = cache[tabId].__discovered[entity] || {};
+        cache[tabId].__discovered[entity] = {
+          entity,
+          displayName: activeTab,
+          luName: prev.luName || null
+        };
       }
 
       await setCache(cache);

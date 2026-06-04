@@ -63,6 +63,17 @@
     } catch(e) { return null; }
   }
 
+  // F-16 Faz 1.11: aktif tab başlığını entity için display name olarak kullan.
+  // IFS Aurena ARIA tablist kullanıyor: [role="tab"][aria-selected="true"]'in text'i.
+  function getActiveTabLabel() {
+    try {
+      const tab = document.querySelector('[role="tab"][aria-selected="true"]');
+      const text = tab?.textContent?.trim();
+      if (text && text.length < 100) return text;
+    } catch (e) {}
+    return null;
+  }
+
   // Veriyi background'a gönder
   function capture(info, records) {
     if (!info || !records || !records.length) return;
@@ -79,15 +90,13 @@
       url: info.url,
       key: info.key,
       records: records,
+      activeTab: getActiveTabLabel(),
       capturedAt: Date.now()
     };
 
-    // MAIN world'den direkt chrome.runtime.sendMessage
-    // postMessage + content.js bridge yerine doğrudan background'a
     try {
       chrome.runtime.sendMessage({ type: 'DATA_CAPTURED', payload });
     } catch(e) {
-      // Fallback: postMessage ile content.js üzerinden
       window.postMessage(payload, '*');
     }
   }
