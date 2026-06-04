@@ -248,7 +248,11 @@ async function fetchServiceMetadata(tabId, svcBase) {
       if (!retMatch) continue;
       const returnType = retMatch[1];
       if (isLookupName(fnName) || isLookupType(returnType)) continue;
-      functions.push({ name: fnName, returnType });
+      // F-16 Faz 1.10b: dropdown'da function adı (PurchaseRequisitionLines) değil,
+      // gerçek entity = return type'ın karşılığı EntitySet (PurchReqLineApproval) görünür.
+      // Function adı arka planda saklanır (auto-fetch'te URL inşası için).
+      const returnEntitySet = typeToEntitySet[returnType] || returnType.split('.').pop();
+      functions.push({ name: fnName, returnType, returnEntitySet });
     }
 
     console.log('[Ahtapot BG] $metadata:', svcBase.match(/\/([^/]+)\.svc\//)?.[1],
@@ -526,12 +530,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       cachedSvcBases.forEach(svcBase => {
         const meta = serviceMeta[svcBase];
         (meta?.functions || []).forEach(fn => {
-          if (!tabCache[fn.name] && !combined[fn.name]) {
-            combined[fn.name] = {
-              entity: fn.name,
-              displayName: metaDisplayName[fn.name] || null,
+          // F-16 Faz 1.10b: dropdown'da gerçek entity (return type'tan) görünür.
+          // Function adı arka planda functionName olarak saklanır (Faz 2'de
+          // auto-fetch URL inşası için lazım: svcBase + fnName(params)).
+          const key = fn.returnEntitySet || fn.name;
+          if (!tabCache[key] && !combined[key]) {
+            combined[key] = {
+              entity: key,
+              displayName: metaDisplayName[key] || null,
               luName: null,
               source: 'function',
+              functionName: fn.name,
               returnType: fn.returnType
             };
           }
