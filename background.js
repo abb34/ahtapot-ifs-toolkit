@@ -160,10 +160,10 @@ async function setCache(cache) {
   await chrome.storage.local.set({ dataCache: cache });
 }
 
-// F-16 Faz 1.8: OData $metadata endpoint'inden service'in tüm EntitySet'lerini
-// öğren. IFS Aurena lazy-render — kapalı tab'lardaki entity'ler DOM'da yok,
-// ama metadata'da tanımlı. Bu listeyi cache'e yazıyoruz; popup dropdown'da
-// kullanıcı tüm seçenekleri görür.
+// F-16 Faz 1.8/1.9: OData $metadata endpoint'inden service'in EntitySet'lerini ve
+// EntityType'ların NavigationProperty'lerini parse et. Sadece NavigationProperty
+// (Type="Collection(...)") olanlar gerçek child tablolardır (page'deki tab içerikleri).
+// Reference olanlar (single-record) lookup'tır — dropdown'a girmez.
 const _metadataInFlight = new Set();
 async function fetchServiceMetadata(tabId, svcBase) {
   if (!svcBase || !svcBase.includes('.svc/')) return;
@@ -181,28 +181,68 @@ async function fetchServiceMetadata(tabId, svcBase) {
     }
     const xml = await resp.text();
 
-    // EntitySet adlarını çıkar — basit XML regex (DOMParser SW'de yok)
+    // ── 1. EntitySet adları + display name + EntityType mapping ──
+    // <EntitySet Name="PurchaseRequisitionSet" EntityType="IFS.PurchaseRequisition"/>
     const entitySets = [];
-    const seen = new Set();
-    const re = /<EntitySet\s+Name="([^"]+)"[^>]*\/?>/g;
+    const entitySetToType = {};   // EntitySet name → EntityType FQN
+    const typeToEntitySet = {};   // EntityType FQN → EntitySet name
+    const seenSet = new Set();
+    const setRe = /<EntitySet\s+Name="([^"]+)"\s+EntityType="([^"]+)"[^>]*\/?>/g;
     let m;
-    while ((m = re.exec(xml)) !== null) {
-      if (seen.has(m[1])) continue;
-      seen.add(m[1]);
-      // Aynı bloktan display name çıkarmaya çalış (Annotation Term="Common.Label")
+    while ((m = setRe.exec(xml)) !== null) {
+      if (seenSet.has(m[1])) continue;
+      seenSet.add(m[1]);
+      const setName = m[1];
+      const typeFqn = m[2];
+      entitySetToType[setName] = typeFqn;
+      typeToEntitySet[typeFqn] = setName;
+      // Display name (Common.Label annotation veya sap:label)
       const blockEnd = xml.indexOf('</EntitySet>', m.index);
       const block = blockEnd >= 0 ? xml.slice(m.index, blockEnd) : xml.slice(m.index, m.index + 600);
       const lblMatch = block.match(/Annotation[^>]*Term="(?:[^"]*\.)?(?:Label|Heading)"[^>]*String="([^"]+)"|sap:label="([^"]+)"/i);
       const displayName = lblMatch ? (lblMatch[1] || lblMatch[2]) : null;
-      entitySets.push({ entity: m[1], displayName });
+      entitySets.push({ entity: setName, type: typeFqn, displayName });
     }
 
-    console.log('[Ahtapot BG] $metadata:', svcBase.match(/\/([^/]+)\.svc\//)?.[1], '→', entitySets.length, 'EntitySet');
+    // ── 2. EntityType'ların NavigationProperty'leri ──
+    // <EntityType Name="PurchaseRequisition">
+    //   <NavigationProperty Name="PartRequisitionLines" Type="Collection(IFS.PurchaseReqLinePart)"/>
+    //   <NavigationProperty Name="RequisitionerCodeRef" Type="IFS.Reference_Requisitioner"/>
+    // </EntityType>
+    const typeNavProps = {};  // EntityType FQN → [{ name, targetType, isCollection }]
+    const typeRe = /<EntityType\s+Name="([^"]+)"[^>]*>([\s\S]*?)<\/EntityType>/g;
+    while ((m = typeRe.exec(xml)) !== null) {
+      const typeName = m[1];
+      const body = m[2];
+      // Schema namespace'ini bul (üstteki Schema'dan)
+      // Genelde "IFS" veya "Default" — tam path lazım için entitySetToType'tan tersine bak
+      const fqn = Object.values(entitySetToType).find(t => t.endsWith('.' + typeName)) || typeName;
+      const navs = [];
+      const navRe = /<NavigationProperty\s+Name="([^"]+)"\s+(?:Type="([^"]+)"|[\s\S]*?Type="([^"]+)")[^>]*\/?>/g;
+      let n;
+      while ((n = navRe.exec(body)) !== null) {
+        const navName = n[1];
+        const navType = n[2] || n[3] || '';
+        const isCollection = /^Collection\(/.test(navType);
+        const targetType = navType.replace(/^Collection\(/, '').replace(/\)$/, '');
+        navs.push({ name: navName, targetType, isCollection });
+      }
+      if (navs.length) typeNavProps[fqn] = navs;
+    }
+
+    console.log('[Ahtapot BG] $metadata:', svcBase.match(/\/([^/]+)\.svc\//)?.[1],
+      '→', entitySets.length, 'EntitySet,',
+      Object.keys(typeNavProps).length, 'EntityType (nav-props)');
 
     const cache = await getCache();
     if (!cache[tabId]) cache[tabId] = {};
     cache[tabId].__serviceMeta = cache[tabId].__serviceMeta || {};
-    cache[tabId].__serviceMeta[svcBase] = entitySets;
+    cache[tabId].__serviceMeta[svcBase] = {
+      entitySets,
+      entitySetToType,
+      typeToEntitySet,
+      typeNavProps
+    };
     await setCache(cache);
     chrome.runtime.sendMessage({ type: 'METADATA_LOADED', tabId, count: entitySets.length }).catch(() => {});
   } catch (e) {
@@ -386,14 +426,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const discovered = tabCache.__discovered || {};
       const serviceMeta = tabCache.__serviceMeta || {};
 
-      // F-16 Faz 1.9: $metadata sadece display name eşleştirmesi için
-      // (dropdown'a girmiyor). Page descriptor endpoint'i öğrenilince
-      // tekrar değerlendirilecek.
+      // F-16 Faz 1.9: $metadata'dan EntitySet display name'leri (yedek)
       const metaDisplayName = {};
-      Object.values(serviceMeta).forEach(entitySets => {
-        (entitySets || []).forEach(e => {
+      const allTypeToEntitySet = {};
+      const allTypeNavProps = {};
+      Object.values(serviceMeta).forEach(meta => {
+        if (!meta) return;
+        (meta.entitySets || []).forEach(e => {
           if (e && e.entity && e.displayName) metaDisplayName[e.entity] = e.displayName;
         });
+        if (meta.typeToEntitySet) Object.assign(allTypeToEntitySet, meta.typeToEntitySet);
+        if (meta.typeNavProps) Object.assign(allTypeNavProps, meta.typeNavProps);
       });
 
       const summary = Object.entries(tabCache)
@@ -404,17 +447,51 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           recordCount: data.records.length,
           capturedAt: data.capturedAt,
           stale: data.stale,
-          // F-16: keşif sırasında bulunan display name (DOM önce, metadata yedek)
           displayName: discovered[entity]?.displayName || metaDisplayName[entity] || null,
           fields: data.records[0] ? cleanFields(data.records[0]) : []
         }));
 
-      // F-16 Faz 1.9: discovered sadece DOM'dan gelenleri içerir
-      // (lookup/LOV gürültüsünü engellemek için $metadata dahil değil).
-      const discoveredOnly = Object.values(discovered)
-        .filter(d => !tabCache[d.entity])
-        .map(d => ({ ...d, displayName: d.displayName || metaDisplayName[d.entity] || null }));
+      // F-16 Faz 1.9: discovered listesi şu kaynaklardan birleşik:
+      //   1. content.js DOM keşfi (kullanıcı açtıysa)
+      //   2. Header entity'lerin Collection nav-property'leri ($metadata'dan)
+      //      → bunlar gerçek page-level child entity'ler (Lines, Approvals, vb.)
+      const combined = {};
+      Object.values(discovered).forEach(d => {
+        if (d && d.entity) combined[d.entity] = {
+          entity: d.entity,
+          displayName: d.displayName || metaDisplayName[d.entity] || null,
+          luName: d.luName || null,
+          source: 'dom'
+        };
+      });
 
+      // Her cache'lenmiş entity için: o EntityType'ın Collection nav-prop'larına
+      // karşılık gelen EntitySet'leri discovered'a ekle
+      summary.forEach(s => {
+        // Hangi service'in metadata'sı? service field'ı service adıdır (örn. "PurchaseRequisitionHandling")
+        const svcMeta = Object.values(serviceMeta).find(meta =>
+          meta && meta.entitySetToType && meta.entitySetToType[s.entity]
+        );
+        if (!svcMeta) return;
+        const typeFqn = svcMeta.entitySetToType[s.entity];
+        const navs = svcMeta.typeNavProps?.[typeFqn] || [];
+        navs.filter(n => n.isCollection).forEach(n => {
+          // Nav-prop'un target EntitySet adı — typeToEntitySet'ten bul
+          const targetEntitySet = svcMeta.typeToEntitySet?.[n.targetType] || n.name;
+          if (targetEntitySet && !tabCache[targetEntitySet] && !combined[targetEntitySet]) {
+            combined[targetEntitySet] = {
+              entity: targetEntitySet,
+              displayName: metaDisplayName[targetEntitySet] || null,
+              luName: null,
+              source: 'nav-prop',
+              parentEntity: s.entity,
+              navName: n.name
+            };
+          }
+        });
+      });
+
+      const discoveredOnly = Object.values(combined).filter(d => !tabCache[d.entity]);
       sendResponse({ cache: summary, discovered: discoveredOnly, tabId });
     })();
     return true;
